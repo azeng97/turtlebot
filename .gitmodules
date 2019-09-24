@@ -1,0 +1,16 @@
+[submodule "src/crosbot"]
+	path = src/crosbot
+	url = http://robolab.cse.unsw.edu.au:4443/rescue/crosbot.git
+	branch = master
+[submodule "src/comp3431-rsa"]
+	path = src/comp3431-rsa
+	url = http://robolab.cse.unsw.edu.au:4443/comp3431-rsa/comp3431-rsa.git
+	branch = master
+[submodule "src/turtlebot3_msgs"]
+	path = src/turtlebot3_msgs
+	url = https://github.com/ROBOTIS-GIT/turtlebot3_msgs.git
+	branch = master
+[submodule "src/turtlebot3"]
+	path = src/turtlebot3
+	url = https://github.com/ROBOTIS-GIT/turtlebot3.git
+	branch = master
