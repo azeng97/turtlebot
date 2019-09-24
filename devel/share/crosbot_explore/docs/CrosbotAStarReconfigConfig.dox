@@ -1,0 +1,12 @@
+\subsubsection parameters ROS parameters
+
+Reads and maintains the following parameters on the ROS server
+
+- \b "~weight_partial" : \b [double] Partial region weighting min: 0.0, default: 2.0, max: 1000.0
+- \b "~weight_expanded" : \b [double] Expanded region weighting min: 0.0, default: 1.0, max: 1000.0
+- \b "~weight_skeleton" : \b [double] Expanded region weighting min: 0.0, default: 1.0, max: 1000.0
+- \b "~astar_voronoi_restricted" : \b [double] Voronoi Constraint: Restricted min: 0.0, default: 0.2, max: 2.0
+- \b "~astar_voronoi_partial" : \b [double] Voronoi Constraint: Partial min: 0.0, default: 0.2, max: 2.0
+- \b "~astar_voronoi_expand" : \b [double] Voronoi Constraint: Expand min: 0.0, default: 0.5, max: 2.0
+- \b "~astar_voronoi_orphanThreshold" : \b [double] Voronoi Constraint: Orphan Threshold min: 0.0, default: 20.0, max: 100.0
+

@@ -8,6 +8,9 @@
 
 # modified environment variables
 export CMAKE_PREFIX_PATH="/home/azeng/turtle_ws/devel:$CMAKE_PREFIX_PATH"
+export LD_LIBRARY_PATH="/home/azeng/turtle_ws/devel/lib:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/home/azeng/turtle_ws/devel/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PWD="/home/azeng/turtle_ws/build"
+export PYTHONPATH="/home/azeng/turtle_ws/devel/lib/python2.7/dist-packages:/home/azeng/src/Autonomous-Drifting/fyp_ws/devel/lib/python2.7/dist-packages:/opt/ros/kinetic/lib/python2.7/dist-packages:/home/azeng/src_py3/devel/lib/python3/dist-packages:/home/azeng/src_py3/Autonomous-Drifting/fyp_ws/devel/lib/python3/dist-packages"
 export ROSLISP_PACKAGE_DIRECTORIES="/home/azeng/turtle_ws/devel/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"
 export ROS_PACKAGE_PATH="/home/azeng/turtle_ws/src:$ROS_PACKAGE_PATH"

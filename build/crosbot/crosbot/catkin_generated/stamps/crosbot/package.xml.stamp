@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>crosbot</name>
+    <version>3.0.0</version>
+    <description>
+        The crosbot (core) libraries/package for robotics software
+        developed by the AI Robotics Lab, School of Computer Science and Engineering,
+        University of New South Wales (UNSW).
+    </description>
+    
+    <!-- One maintainer tag required, multiple allowed, one person per tag --> 
+    <!--maintainer email="mmcgill@cse.unsw.edu.au">Matthew McGill</maintainer-->
+    <maintainer email="t.wiley@unsw.edu.au">Timothy Wiley</maintainer>
+    
+    <!-- One license tag required, multiple allowed, one license per tag -->
+    <!-- Commonly used license strings: -->
+    <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
+    <license>TODO</license>
+    
+    <!-- Url tags are optional, but multiple are allowed, one per tag -->
+    <!-- Optional attribute type can be: website, bugtracker, or repository -->
+    <!-- Example: -->
+    <!-- <url type="website">http://ros.org/wiki/crosbot</url> -->
+    
+    <!-- Author tags are optional, multiple are allowed, one per tag -->
+    <!-- Authors do not have to be maintianers, but could be -->
+    <!-- Example: -->
+    <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
+    <author email="mmcgill@cse.unsw.edu.au">Matthew McGill</author>
+    <author email="amilstein@cse.unsw.edu.au">Adam Milstein</author>
+    <author email="adrianr@cse.unsw.edu.au">Adrian Ratter</author>
+    
+    <!-- Build tool dependencies -->
+    <buildtool_depend>catkin</buildtool_depend>
+    
+    <!-- Build and run dependencies -->
+    <depend>roscpp</depend>
+    <depend>tf</depend>
+    <depend>geometry_msgs</depend>
+    <depend>sensor_msgs</depend>
+    <depend>crosbot_msgs</depend>
+    
+    <depend>message_generation</depend>
+    <depend>message_runtime</depend>
+    
+    <!-- Documentation dependencies -->
+    <doc_depend>rosdoc_lite</doc_depend>
+    <doc_depend>doxygen</doc_depend>
+    
+    <export>
+        <!-- Documentation -->
+        <rosdoc config="cfg/rosdoc.yaml" />
+    </export>
+</package>

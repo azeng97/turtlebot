@@ -1,0 +1,20 @@
+\subsubsection usage Usage
+\verbatim
+<node name="crosbot_explore_reconfig" pkg="crosbot_explore" type="crosbot_explore_reconfig">
+  <param name="voronoi_restricted" type="double" value="0.2" />
+  <param name="voronoi_partial" type="double" value="0.2" />
+  <param name="voronoi_expand" type="double" value="0.5" />
+  <param name="voronoi_orphanThreshold" type="double" value="20.0" />
+  <param name="min_travel_distance" type="double" value="0.0" />
+  <param name="obstruction_angle" type="double" value="45.0" />
+  <param name="proximity_angle" type="double" value="20.0" />
+  <param name="proximity_distance" type="double" value="0.5" />
+  <param name="skeleton_search_distance" type="double" value="1.570795" />
+  <param name="wall_search_distance" type="double" value="1.0" />
+  <param name="wall_search_angle" type="double" value="1.570795" />
+  <param name="map_sub" type="str" value="map" />
+  <param name="drive_max_vel" type="double" value="0.3" />
+  <param name="drive_max_turn" type="double" value="0.3" />
+</node>
+\endverbatim
+

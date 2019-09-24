@@ -1,0 +1,8 @@
+prefix=/home/azeng/turtle_ws/devel
+
+Name: crosbot_ogmbicp
+Description: Description of crosbot_ogmbicp
+Version: 0.0.0
+Cflags: -I/home/azeng/turtle_ws/devel/include -I/home/azeng/turtle_ws/src/crosbot/crosbot_ogmbicp/include
+Libs: -L/home/azeng/turtle_ws/devel/lib -logmbicp
+Requires: crosbot crosbot_map nav_msgs roscpp sensor_msgs tf

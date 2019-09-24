@@ -1,0 +1,17 @@
+(cl:defpackage crosbot_msgs-msg
+  (:use )
+  (:export
+   "<COLOURMSG>"
+   "COLOURMSG"
+   "<COLOUREDPOINTMSG>"
+   "COLOUREDPOINTMSG"
+   "<CONTROLCOMMAND>"
+   "CONTROLCOMMAND"
+   "<CONTROLSTATUS>"
+   "CONTROLSTATUS"
+   "<POINTCLOUDMSG>"
+   "POINTCLOUDMSG"
+   "<STRINGARRAY>"
+   "STRINGARRAY"
+  ))
+

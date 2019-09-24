@@ -1,0 +1,8 @@
+prefix=/home/azeng/turtle_ws/devel
+
+Name: crosbot_explore
+Description: Description of crosbot_explore
+Version: 2.0.0
+Cflags: -I/home/azeng/turtle_ws/devel/include -I/home/azeng/turtle_ws/src/crosbot/crosbot_explore/include
+Libs: -L/home/azeng/turtle_ws/devel/lib -lcrosbot_explore
+Requires: roscpp geometry_msgs nav_msgs actionlib_msgs crosbot crosbot_map crosbot_msgs

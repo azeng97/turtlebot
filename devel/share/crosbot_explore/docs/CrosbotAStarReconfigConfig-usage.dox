@@ -1,0 +1,13 @@
+\subsubsection usage Usage
+\verbatim
+<node name="crosbot_astar_reconfig" pkg="crosbot_explore" type="crosbot_astar_reconfig">
+  <param name="weight_partial" type="double" value="2.0" />
+  <param name="weight_expanded" type="double" value="1.0" />
+  <param name="weight_skeleton" type="double" value="1.0" />
+  <param name="astar_voronoi_restricted" type="double" value="0.2" />
+  <param name="astar_voronoi_partial" type="double" value="0.2" />
+  <param name="astar_voronoi_expand" type="double" value="0.5" />
+  <param name="astar_voronoi_orphanThreshold" type="double" value="20.0" />
+</node>
+\endverbatim
+
