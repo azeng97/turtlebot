@@ -2,6 +2,7 @@
 
 import subprocess
 import rospy
+import tf
 from std_msgs.msg import Int8, Float64, Float64MultiArray, String
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
@@ -106,6 +107,16 @@ def transform(pos, baseframe):
     :param baseframe: robot pose (coordinate, orientation)
     :return: coordinate of beacon in world frame
     """
+    tf_listener = TransformListener()
+
+    # TODO check if "/camera_link" is the right frame to be using here
+    if tf.frameExists("/world") and tf.frameExists("/camera_link"):
+        time = tf_listener.getLatestCommonTime("/world", "/camera_link")
+        translation, rotation = tf.lookupTransform("/world", "/camera_link", time)
+        # get a transform matrix
+        transform = fromTranslationRotation(translation, rotation)
+        pos = transform * pos # apply the transform to the beacon coordinate
+
     return pos
 
 def publish_beacon(beacon_pub, beacon, map_coord):
