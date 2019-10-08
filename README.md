@@ -2,13 +2,13 @@
 
 Task allocations:
 
-5.2 Mapping - Ben
+5.2 Mapping - Done
 
-5.3 Exploration - Connor
+5.3 Exploration - Done
 
-5.4 Waypoint Navigation - Avan
+5.4 Waypoint Navigation - To be integrated
 
-5.5 Vision Processing - Zac
+5.5 Vision Processing - WIP
 
-5.6 Visualisation Markers - Jun
+5.6 Visualisation Markers - WIP
 
