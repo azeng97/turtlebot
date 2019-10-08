@@ -8,7 +8,7 @@ from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
-
+import time
 
 class Beacon:
     def __init__(self, id, top, bottom):
@@ -31,7 +31,8 @@ def main():
     beacons = set(beacons)
     cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
     origin_pub = rospy.Publisher("move_base_simple/goal", PoseStamped, queue_size=1)
-    while beacons:
+    start = time.time()
+    while beacons and time.time()-start < 20:
         pixel_data, depth_data = getCameraData()
         pose = getPose()
         beacon, pos = detect_beacons(pixel_data, depth_data, beacons)
@@ -52,7 +53,7 @@ def main():
     origin = PoseStamped()
     origin.pose.position.x = 0
     origin.pose.position.y = 0
-    origin.pose.position.z = 0
+    origin.pose.position.z = 0git
     origin_pub.publish(origin)
 
 
