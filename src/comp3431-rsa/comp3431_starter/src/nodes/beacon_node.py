@@ -42,6 +42,7 @@ def main():
     # beacons all found
 
     #TODO save map
+    subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "$(find turtlebot3_navigation)/maps/map.yaml"])
     cmd_pub.publish("stop") #stop wall following
 
     #TODO launch navigation with map file argument
