@@ -2,7 +2,7 @@
 
 import subprocess
 import rospy
-import tf
+from tf import TransformListener
 from std_msgs.msg import Int8, Float64, Float64MultiArray, String
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
@@ -100,21 +100,19 @@ def detect_beacons(pixel_data, depth_data, beacons):
     return beacon, pos
 
 def transform(pos, baseframe):
-    #TODO do transformation (remember robot origin is different from camera pos)
     """
     Convert coordinate in camera frame to world frame
     :param pos: coordinate of beacon in camera frame
     :param baseframe: robot pose (coordinate, orientation)
     :return: coordinate of beacon in world frame
     """
-    tf_listener = TransformListener()
+    tf = TransformListener()
 
-    # TODO check if "/camera_link" is the right frame to be using here
-    if tf.frameExists("/world") and tf.frameExists("/camera_link"):
-        time = tf_listener.getLatestCommonTime("/world", "/camera_link")
-        translation, rotation = tf.lookupTransform("/world", "/camera_link", time)
+    if tf.frameExists("/world") and tf.frameExists("/camera_depth_frame"):
+        time = tf_listener.getLatestCommonTime("/world", "/camera_depth_frame")
+        translation, rotation = tf.lookupTransform("/world", "/camera_depth_frame", time)
         # get a transform matrix
-        transform = fromTranslationRotation(translation, rotation)
+        transform = tf.fromTranslationRotation(translation, rotation)
         pos = transform * pos # apply the transform to the beacon coordinate
 
     return pos
