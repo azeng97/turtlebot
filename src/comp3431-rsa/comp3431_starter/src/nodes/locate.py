@@ -77,7 +77,7 @@ def find_beacon(bottom, top):
     """
     for (xb, yb) in bottom:
         for (xt, yt) in top:
-            if abs(xb - xt) < 15:
+            if abs(xb - xt) < 15 and yt < yb:
                 return (xt, yt)
 
 
@@ -101,8 +101,7 @@ beacon1 = find_beacon(blues, pinks)
 beacon2 = find_beacon(pinks, yellows)
 beacon3 = find_beacon(yellows, pinks)
 
-
-print(pinks, blues, greens)
+print(pinks, blues, greens, yellows)
 print(beacon0, beacon1, beacon2, beacon3)
 show(draw_centers([beacon0, beacon1, beacon2, beacon3], img))
 # show(draw_centers(pinks, img), draw_centers(blues, img), draw_centers(greens, img))
