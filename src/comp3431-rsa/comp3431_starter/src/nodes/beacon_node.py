@@ -53,7 +53,7 @@ def main():
     origin = PoseStamped()
     origin.pose.position.x = 0
     origin.pose.position.y = 0
-    origin.pose.position.z = 0git
+    origin.pose.position.z = 0
     origin_pub.publish(origin)
 
 
