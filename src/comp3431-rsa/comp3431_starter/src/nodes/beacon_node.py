@@ -31,6 +31,8 @@ class Beacon:
     def average_postion(self):
         x_sum = y_sum = z_sum = 0
         length = len(self.all_positions)
+        if not length:
+            return (0, 0, 0)
         for x, y, z in self.all_positions:
             x_sum += x
             y_sum += y
@@ -49,22 +51,24 @@ def main():
         Beacon(2, "pink", "yellow"),
         Beacon(3, "yellow", "pink")
     ]
-    beacons = set(beacons)
+    # beacons = set(beacons)
     cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
     origin_pub = rospy.Publisher("move_base_simple/goal", PoseStamped, queue_size=1)
     rospy.sleep(1)
     cmd_pub.publish("start") #start wall following
     start = time.time()
     while beacons and time.time()-start < 20:
+
         pixel_data, pointcloud_data = getCameraData()
-        pose = getPose()
         pairs = detect_beacons(pixel_data, pointcloud_data, beacons)
+
         if not pairs:
             continue
         for beacon, pos in pairs:
             print(beacon, pos)
-            # map_coord = transform(pos, pose)
-            # beacon.add_pos(map_coord)
+            map_coord = transform(pos)
+            print(beacon, pos)
+            beacon.add_pos(map_coord)
 
 
     # beacons all found
@@ -73,8 +77,8 @@ def main():
 
     # #TODO save map
     # subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
-    # cmd_pub.publish("stop") #stop wall following
-
+    cmd_pub.publish("stop") #stop wall following
+    cmd_pub.publish("start_nav")
     # #TODO launch navigation with map file argument
     # subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch", "map_file:=/home/rsa/turtlebot/src/comp3431-rsa/comp3431_starter/src/nodes/test.yaml"])
     # rospy.sleep(15)
@@ -98,30 +102,31 @@ def getCameraData():
     :return: RGB and depth data
     """
     pixel_data = None
-    pointcloud_data = None
-    while not pixel_data or not pointcloud_data:
+    pcl = None
+    while pixel_data is None or pcl is None:
         try:
             #pixel_data = rospy.wait_for_message("/camera/color/image_raw", Image, timeout=1)
             pixel_data = rospy.wait_for_message("/camera/rgb/image_raw", Image, timeout=1)
             pointcloud_data = rospy.wait_for_message("/camera/depth/points", PointCloud2, timeout=1)
+            pcl = pointcloud2_to_array(pointcloud_data)
         except Exception as e:
             print(e)
             pass
-    return pixel_data, pointcloud_data
+    return pixel_data, pcl
 
-def getPose():
-    """
-    Subscriber function for turtlebot pose
-    :return: pose as geometry_msgs/Pose message
-    """
-    pose = None
-    while not pose:
-        try:
-            odom = rospy.wait_for_message("/odom", Odometry, timeout=1)
-        except Exception as e:
-            print(e)
-            pass
-    return odom.pose.pose
+# def getPose():
+#     """
+#     Subscriber function for turtlebot pose
+#     :return: pose as geometry_msgs/Pose message
+#     """
+#     pose = None
+#     while not pose:
+#         try:
+#             odom = rospy.wait_for_message("/odom", Odometry, timeout=1)
+#         except Exception as e:
+#             print(e)
+#             pass
+#     return odom.pose
 
 
 def detect_beacons(pixel_data, pointcloud_data, beacons):
@@ -133,8 +138,10 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     :param beacons: set of beacons remaining to be found
     :return: position of detected beacon or None if not found
     """
+    print("detecting beacons")
     bridge = CvBridge()
     img = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
+    #print(img.shape)
     #print(type(depth_data))
     # for p in pc2.read_points(pointcloud_data, field_names = ("x", "y", "z"), skip_nans=True):
     #     print(p[0], p[1], p[2])
@@ -149,20 +156,20 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     beacon1 = find_beacon(blues, pinks)
     beacon2 = find_beacon(pinks, yellows)
     beacon3 = find_beacon(yellows, pinks)
-    # print(beacon0, beacon1, beacon2, beacon3)
+    print(beacon0, beacon1, beacon2, beacon3)
 
     res = []
     if beacon0:
-        res.append((beacons[0], beacon0))
+        res.append((beacons[0], pointcloud_data[beacon0[0]][beacon0[1]]))
     if beacon1:
-        res.append((beacons[1], beacon1))
+        res.append((beacons[1], pointcloud_data[beacon1[0]][beacon1[1]]))
     if beacon2:
-        res.append((beacons[2], beacon2))
+        res.append((beacons[2], pointcloud_data[beacon2[0]][beacon2[1]]))
     if beacon3:
-        res.append((beacons[3], beacon3))
+        res.append((beacons[3], pointcloud_data[beacon3[0]][beacon3[1]]))
     return res
 
-def transform(pos, baseframe):
+def transform(pos):
     """
     Convert coordinate in camera frame to world frame
     :param pos: coordinate of beacon in camera frame
@@ -171,13 +178,12 @@ def transform(pos, baseframe):
     """
     tf = TransformListener()
 
-    if tf.frameExists("/world") and tf.frameExists("/camera_depth_frame"):
-        time = tf_listener.getLatestCommonTime("/world", "/camera_depth_frame")
-        translation, rotation = tf.lookupTransform("/world", "/camera_depth_frame", time)
+    if tf.frameExists("/map") and tf.frameExists("/camera_depth_frame"):
+        time = tf.getLatestCommonTime("/map", "/camera_depth_frame")
+        translation, rotation = tf.lookupTransform("/map", "/camera_depth_frame", time)
         # get a transform matrix
         transform = tf.fromTranslationRotation(translation, rotation)
         pos = transform * pos # apply the transform to the beacon coordinate
-
     return pos
 
 def publish_beacon(beacon_pub, beacon):
@@ -217,6 +223,17 @@ def publish_beacon(beacon_pub, beacon):
     marker.lifetime = rospy.Duration(0) #does not delete shape
 
     beacon_pub.publish(marker)
+
+
+def pointcloud2_to_array(cloud_msg):
+    '''
+    Converts a rospy PointCloud2 message to a numpy recordarray
+
+    Assumes all fields 32 bit floats, and there is no padding.
+    '''
+    points = np.array([p for p in pc2.read_points(cloud_msg, field_names = ("x", "y", "z"), skip_nans=False)])
+    # print(np.shape(points), cloud_msg.height, cloud_msg.width)
+    return np.reshape(points, (cloud_msg.height, cloud_msg.width, 3))
 
 if __name__ == "__main__":
     main()

@@ -154,7 +154,7 @@ void WallFollower::callbackScan(const sensor_msgs::LaserScanConstPtr& scan) {
 }
 
 void WallFollower::callbackControl(const std_msgs::StringConstPtr& command) {
-    ROS_INFO("Recieved %s message.\n", command->data.c_str());
+    ROS_INFO("Received %s message.\n", command->data.c_str());
     if (strcasecmp(command->data.c_str(), "start") == 0 ||
             strcasecmp(command->data.c_str(), "go") == 0 ||
             strcasecmp(command->data.c_str(), "begin") == 0 ||
