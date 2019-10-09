@@ -62,32 +62,33 @@ def main():
         if not pairs:
             continue
         for beacon, pos in pairs:
-            map_coord = transform(pos, pose)
-            beacon.add_pos(map_coord)
+            print(beacon, pos)
+            # map_coord = transform(pos, pose)
+            # beacon.add_pos(map_coord)
 
 
     # beacons all found
     for beacon in beacons:
         publish_beacon(beacon_pub, beacon)
 
-    #TODO save map
-    subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
-    cmd_pub.publish("stop") #stop wall following
+    # #TODO save map
+    # subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
+    # cmd_pub.publish("stop") #stop wall following
 
-    #TODO launch navigation with map file argument
-    subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch", "map_file:=/home/rsa/turtlebot/src/comp3431-rsa/comp3431_starter/src/nodes/test.yaml"])
-    rospy.sleep(15)
-    #TODO check if initial position is 0 or need to set at the start
-    origin = PoseStamped()
-    origin.header.frame_id = "map"
-    origin.pose.position.x = 0
-    origin.pose.position.y = 0
-    origin.pose.position.z = 0
-    origin.pose.orientation.x = 0
-    origin.pose.orientation.y = 0
-    origin.pose.orientation.z = 0
-    origin.pose.orientation.w = 1
-    origin_pub.publish(origin)
+    # #TODO launch navigation with map file argument
+    # subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch", "map_file:=/home/rsa/turtlebot/src/comp3431-rsa/comp3431_starter/src/nodes/test.yaml"])
+    # rospy.sleep(15)
+    # #TODO check if initial position is 0 or need to set at the start
+    # origin = PoseStamped()
+    # origin.header.frame_id = "map"
+    # origin.pose.position.x = 0
+    # origin.pose.position.y = 0
+    # origin.pose.position.z = 0
+    # origin.pose.orientation.x = 0
+    # origin.pose.orientation.y = 0
+    # origin.pose.orientation.z = 0
+    # origin.pose.orientation.w = 1
+    # origin_pub.publish(origin)
 
 
 def getCameraData():
@@ -135,8 +136,8 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     bridge = CvBridge()
     img = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
     #print(type(depth_data))
-    for p in pc2.read_points(pointcloud_data, field_names = ("x", "y", "z"), skip_nans=True):
-        print(p[0], p[1], p[2])
+    # for p in pc2.read_points(pointcloud_data, field_names = ("x", "y", "z"), skip_nans=True):
+    #     print(p[0], p[1], p[2])
 
     pinks = centers_from_range(img, (140, 40, 70), (255, 130, 200))
     blues = centers_from_range(img, (0, 70, 100), (50, 170, 200))
@@ -148,7 +149,7 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     beacon1 = find_beacon(blues, pinks)
     beacon2 = find_beacon(pinks, yellows)
     beacon3 = find_beacon(yellows, pinks)
-    print(beacon0, beacon1, beacon2, beacon3)
+    # print(beacon0, beacon1, beacon2, beacon3)
 
     res = []
     if beacon0:
