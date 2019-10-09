@@ -10,6 +10,13 @@ from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
 import time
 
+from sensor_msgs.msg import PointCloud2, PointField
+import sensor_msgs.point_cloud2 as pc2
+
+import cv2
+from cv_bridge import CvBridge, CvBridgeError
+import numpy as np
+
 class Beacon:
     def __init__(self, id, top, bottom):
         self.id = id
@@ -31,11 +38,13 @@ def main():
     beacons = set(beacons)
     cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
     origin_pub = rospy.Publisher("move_base_simple/goal", PoseStamped, queue_size=1)
+    rospy.sleep(1)
+    cmd_pub.publish("start") #start wall following
     start = time.time()
     while beacons and time.time()-start < 20:
-        pixel_data, depth_data = getCameraData()
-        pose = getPose()
-        beacon, pos = detect_beacons(pixel_data, depth_data, beacons)
+        pixel_data, pointcloud_data = getCameraData()
+        #pose = getPose()
+        beacon, pos = detect_beacons(pixel_data, pointcloud_data, beacons)
         if not pos:
             continue
         map_coord = transform(pos, pose)
@@ -64,15 +73,16 @@ def getCameraData():
     :return: RGB and depth data
     """
     pixel_data = None
-    depth_data = None
-    while not pixel_data or not depth_data:
+    pointcloud_data = None
+    while not pixel_data or not pointcloud_data:
         try:
-            pixel_data = rospy.wait_for_message("color/image_raw", Image, timeout=1)
-            pixel_data = rospy.wait_for_message("depth/image_raw", Image, timeout=1)
+            #pixel_data = rospy.wait_for_message("/camera/color/image_raw", Image, timeout=1)
+            pixel_data = rospy.wait_for_message("/camera/rgb/image_raw", Image, timeout=1)
+            pointcloud_data = rospy.wait_for_message("/camera/depth/points", PointCloud2, timeout=1)
         except Exception as e:
             print(e)
             pass
-    return pixel_data, depth_data
+    return pixel_data, pointcloud_data
 
 def getPose():
     """
@@ -88,7 +98,8 @@ def getPose():
             pass
     return odom.pose.pose
 
-def detect_beacons(pixel_data, depth_data, beacons):
+
+def detect_beacons(pixel_data, pointcloud_data, beacons):
     #TODO something in opencv using RGBD
     """
     Detect beacons from RGB data and map to Depth data
@@ -97,7 +108,57 @@ def detect_beacons(pixel_data, depth_data, beacons):
     :param beacons: set of beacons remaining to be found
     :return: position of detected beacon or None if not found
     """
-    pos = [0, 0, 0]
+    bridge = CvBridge()
+    colour = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
+    #print(type(depth_data))
+    for p in pc2.read_points(pointcloud_data, field_names = ("x", "y", "z"), skip_nans=True):
+        print(p[0], p[1], p[2])
+    #print(depth)
+    #print(len(depth))
+    #depth = bridge.imgmsg_to_cv2(depth_data, "32FC1")
+    #print(colour.shape[0] )
+    colour_boundaries = {
+        "pink" : ([100, 40, 160], [170, 100, 255]), 
+        "blue" : ([80, 70 , 20], [200, 170 , 50]),
+        "green" : ([80, 70 , 20], [200, 170 , 50]),
+        "yellow" : ([80, 70 , 20], [200, 170 , 50])
+    }
+    # blue: 
+    for (beacon_colour, boundary) in colour_boundaries.items():
+        lower = np.array(boundary[0], dtype = "uint8")
+        upper = np.array(boundary[1], dtype = "uint8")
+        
+        mask = cv2.inRange(colour, lower, upper)
+        output = cv2.bitwise_and(colour, colour, mask = mask)
+        
+        detected = False
+        max_row = 0
+        max_col = 0
+        min_row = output.shape[0]
+        min_col = output.shape[1]
+        for row in range(0, output.shape[0]):
+            for col in range(0, output.shape[1]):
+                if output[row][col][0] != 0:
+                    detected = True
+                    if row > max_row:
+                        max_row = row
+                    if col > max_col:
+                        max_col = col
+                    if row < min_row:
+                        min_row = row
+                    if row < min_col:
+                        min_col = col
+        
+        middle_row = (max_row + min_row) / 2
+        middle_col = (max_col + min_col) / 2
+        print("Middle pixel in: (" + str(middle_row) + ", " + str(middle_col) + ")")
+        print(output.shape[0])
+        cv2.imshow("output", output)
+        cv2.waitKey(0)
+    
+    pixel_location = [middle_row, middle_col, depth[middle_row, middle_col]]
+    #print(output[middle_row][middle_col])
+    pos = pixel_location
     beacon = beacons.pop()
     return beacon, pos
 
