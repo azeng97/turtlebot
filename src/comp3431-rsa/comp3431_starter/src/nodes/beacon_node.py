@@ -16,6 +16,7 @@ import sensor_msgs.point_cloud2 as pc2
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
+from locate import centers_from_range, find_beacon
 
 class Beacon:
     def __init__(self, id, top, bottom):
@@ -43,7 +44,7 @@ def main():
     start = time.time()
     while beacons and time.time()-start < 20:
         pixel_data, pointcloud_data = getCameraData()
-        #pose = getPose()
+        pose = getPose()
         beacon, pos = detect_beacons(pixel_data, pointcloud_data, beacons)
         if not pos:
             continue
@@ -109,56 +110,25 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     :return: position of detected beacon or None if not found
     """
     bridge = CvBridge()
-    colour = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
+    img = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
     #print(type(depth_data))
     for p in pc2.read_points(pointcloud_data, field_names = ("x", "y", "z"), skip_nans=True):
         print(p[0], p[1], p[2])
-    #print(depth)
-    #print(len(depth))
-    #depth = bridge.imgmsg_to_cv2(depth_data, "32FC1")
-    #print(colour.shape[0] )
-    colour_boundaries = {
-        "pink" : ([100, 40, 160], [170, 100, 255]), 
-        "blue" : ([80, 70 , 20], [200, 170 , 50]),
-        "green" : ([80, 70 , 20], [200, 170 , 50]),
-        "yellow" : ([80, 70 , 20], [200, 170 , 50])
-    }
-    # blue: 
-    for (beacon_colour, boundary) in colour_boundaries.items():
-        lower = np.array(boundary[0], dtype = "uint8")
-        upper = np.array(boundary[1], dtype = "uint8")
-        
-        mask = cv2.inRange(colour, lower, upper)
-        output = cv2.bitwise_and(colour, colour, mask = mask)
-        
-        detected = False
-        max_row = 0
-        max_col = 0
-        min_row = output.shape[0]
-        min_col = output.shape[1]
-        for row in range(0, output.shape[0]):
-            for col in range(0, output.shape[1]):
-                if output[row][col][0] != 0:
-                    detected = True
-                    if row > max_row:
-                        max_row = row
-                    if col > max_col:
-                        max_col = col
-                    if row < min_row:
-                        min_row = row
-                    if row < min_col:
-                        min_col = col
-        
-        middle_row = (max_row + min_row) / 2
-        middle_col = (max_col + min_col) / 2
-        print("Middle pixel in: (" + str(middle_row) + ", " + str(middle_col) + ")")
-        print(output.shape[0])
-        cv2.imshow("output", output)
-        cv2.waitKey(0)
-    
-    pixel_location = [middle_row, middle_col, depth[middle_row, middle_col]]
+
+    pinks = centers_from_range(img, (140, 40, 70), (255, 130, 200))
+    blues = centers_from_range(img, (0, 70, 100), (50, 170, 200))
+    greens = centers_from_range(img, (0, 60, 40), (50, 130, 110))
+    yellows = centers_from_range(img, (0, 60, 40), (10, 70, 50)) # not correct range
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    beacon0 = find_beacon(pinks, greens)
+    beacon1 = find_beacon(blues, pinks)
+    beacon2 = find_beacon(pinks, yellows)
+    beacon3 = find_beacon(yellows, pinks)
+    print(beacon0, beacon1, beacon2, beacon3)
+
     #print(output[middle_row][middle_col])
-    pos = pixel_location
+    pos = beacon0
     beacon = beacons.pop()
     return beacon, pos
 
