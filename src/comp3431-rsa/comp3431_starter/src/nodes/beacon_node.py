@@ -71,17 +71,22 @@ def main():
         publish_beacon(beacon_pub, beacon)
 
     #TODO save map
-    subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "$(find turtlebot3_navigation)/maps/map.yaml"])
+    subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
     cmd_pub.publish("stop") #stop wall following
 
     #TODO launch navigation with map file argument
-    subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch"])
-
+    subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch", "map_file:=/home/rsa/turtlebot/src/comp3431-rsa/comp3431_starter/src/nodes/test.yaml"])
+    rospy.sleep(15)
     #TODO check if initial position is 0 or need to set at the start
     origin = PoseStamped()
+    origin.header.frame_id = "map"
     origin.pose.position.x = 0
     origin.pose.position.y = 0
     origin.pose.position.z = 0
+    origin.pose.orientation.x = 0
+    origin.pose.orientation.y = 0
+    origin.pose.orientation.z = 0
+    origin.pose.orientation.w = 1
     origin_pub.publish(origin)
 
 
