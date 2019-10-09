@@ -23,6 +23,19 @@ class Beacon:
         self.id = id
         self.top = top
         self.bottom = bottom
+        self.all_positions = []
+
+    def add_pos(self, pos):
+        self.all_positions.append(pos)
+
+    def average_postion(self):
+        x_sum = y_sum = z_sum = 0
+        length = len(self.all_positions)
+        for x, y, z in self.all_positions:
+            x_sum += x
+            y_sum += y
+            z_sum += z
+        return (x_sum/length, y_sum/length, z_sum/length)
 
 
 def main():
@@ -45,12 +58,17 @@ def main():
     while beacons and time.time()-start < 20:
         pixel_data, pointcloud_data = getCameraData()
         pose = getPose()
-        beacon, pos = detect_beacons(pixel_data, pointcloud_data, beacons)
-        if not pos:
+        pairs = detect_beacons(pixel_data, pointcloud_data, beacons)
+        if not pairs:
             continue
-        map_coord = transform(pos, pose)
-        publish_beacon(beacon_pub, beacon, map_coord)
+        for beacon, pos in pairs:
+            map_coord = transform(pos, pose)
+            beacon.add_pos(map_coord)
+
+
     # beacons all found
+    for beacon in beacons:
+        publish_beacon(beacon_pub, beacon)
 
     #TODO save map
     subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "$(find turtlebot3_navigation)/maps/map.yaml"])
@@ -127,10 +145,16 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     beacon3 = find_beacon(yellows, pinks)
     print(beacon0, beacon1, beacon2, beacon3)
 
-    #print(output[middle_row][middle_col])
-    pos = beacon0
-    beacon = beacons.pop()
-    return beacon, pos
+    res = []
+    if beacon0:
+        res.append((beacons[0], beacon0))
+    if beacon1:
+        res.append((beacons[1], beacon1))
+    if beacon2:
+        res.append((beacons[2], beacon2))
+    if beacon3:
+        res.append((beacons[3], beacon3))
+    return res
 
 def transform(pos, baseframe):
     """
@@ -150,14 +174,42 @@ def transform(pos, baseframe):
 
     return pos
 
-def publish_beacon(beacon_pub, beacon, map_coord):
+def publish_beacon(beacon_pub, beacon):
     #TODO populate fields of marker using coord and beacon info
     """
     :param beacon_pub: publisher handle
     :param beacon: Beacon object
     :param map_coord: Converted map coordinate
     """
+
     marker = Marker()
+    marker.header.frame_id = "/world" #not sure if correct frame ###############
+    marker.header.stamp = rospy.get_rostime()
+    marker.ns = "beacon_shapes"
+    marker.id = 0
+    marker.type = 3 #cylinder shape
+    marker.action = 0 #add/modify shape
+    #placement of shape
+
+    map_coord = beacon.average_postion()
+    marker.pose.position.x = map_coord[0]
+    marker.pose.position.y = map_coord[1]
+    marker.pose.position.z = map_coord[2]
+    marker.pose.orientation.x = 0.0
+    marker.pose.orientation.y = 0.0
+    marker.pose.orientation.z = 0.0
+    marker.pose.orientation.w = 1.0
+    #size of shape, maybe modify
+    marker.scale.x = 1.0
+    marker.scale.y = 1.0
+    marker.scale.z = 1.0
+    #colour of shape, green atm, maybe modify based on beacon param
+    marker.color.r = 0.0
+    marker.color.g = 1.0
+    marker.color.b = 0.0
+    marker.color.a = 1.0
+    marker.lifetime = rospy.Duration(0) #does not delete shape
+
     beacon_pub.publish(marker)
 
 if __name__ == "__main__":
