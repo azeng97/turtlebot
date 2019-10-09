@@ -170,4 +170,3 @@ void WallFollower::callbackControl(const std_msgs::StringConstPtr& command) {
 }
 
 } // namespace comp3431
-

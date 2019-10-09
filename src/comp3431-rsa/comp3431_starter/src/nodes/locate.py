@@ -81,27 +81,28 @@ def find_beacon(bottom, top):
                 return (xt, yt)
 
 
-ranges = {
-    "pink": ((140, 40, 70), (255, 130, 200)),
-    "blue": ((0, 70, 100), (50, 170, 200)),
-    "green": ((0, 60, 40), (50, 130, 110)),
-    "fake": ((0, 60, 40), (10, 70, 50)),
-}
+if __name__ == "main":
+    ranges = {
+        "pink": ((140, 40, 70), (255, 130, 200)),
+        "blue": ((0, 70, 100), (50, 170, 200)),
+        "green": ((0, 60, 40), (50, 130, 110)),
+        "fake": ((0, 60, 40), (10, 70, 50)),
+    }
 
 
-img = np.load("unfiltered.npy")
-pinks = centers_from_range(img, *ranges["pink"])
-blues = centers_from_range(img, *ranges["blue"])
-greens = centers_from_range(img, *ranges["green"])
-yellows = centers_from_range(img, *ranges["fake"])
+    img = np.load("unfiltered.npy")
+    pinks = centers_from_range(img, *ranges["pink"])
+    blues = centers_from_range(img, *ranges["blue"])
+    greens = centers_from_range(img, *ranges["green"])
+    yellows = centers_from_range(img, *ranges["fake"])
 
-img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-beacon0 = find_beacon(pinks, greens)
-beacon1 = find_beacon(blues, pinks)
-beacon2 = find_beacon(pinks, yellows)
-beacon3 = find_beacon(yellows, pinks)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    beacon0 = find_beacon(pinks, greens)
+    beacon1 = find_beacon(blues, pinks)
+    beacon2 = find_beacon(pinks, yellows)
+    beacon3 = find_beacon(yellows, pinks)
 
-print(pinks, blues, greens, yellows)
-print(beacon0, beacon1, beacon2, beacon3)
-show(draw_centers([beacon0, beacon1, beacon2, beacon3], img))
-# show(draw_centers(pinks, img), draw_centers(blues, img), draw_centers(greens, img))
+    print(pinks, blues, greens, yellows)
+    print(beacon0, beacon1, beacon2, beacon3)
+    show(draw_centers([beacon0, beacon1, beacon2, beacon3], img))
+    # show(draw_centers(pinks, img), draw_centers(blues, img), draw_centers(greens, img))
