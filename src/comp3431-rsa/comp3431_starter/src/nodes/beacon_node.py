@@ -7,8 +7,10 @@ from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
+import time
 
 from sensor_msgs.msg import PointCloud2, PointField
+import sensor_msgs.point_cloud2 as pc2
 
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
@@ -32,14 +34,16 @@ def main():
         Beacon(2, "pink", "yellow"),
         Beacon(3, "yellow", "pink")
     ]
-    print("running")
     beacons = set(beacons)
     cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
     origin_pub = rospy.Publisher("move_base_simple/goal", PoseStamped, queue_size=1)
-    while beacons:
-        pixel_data, depth_data = getCameraData()
-        pose = getPose()
-        beacon, pos = detect_beacons(pixel_data, depth_data, beacons)
+    rospy.sleep(1)
+    cmd_pub.publish("start") #start wall following
+    start = time.time()
+    while beacons and time.time()-start < 20:
+        pixel_data, pointcloud_data = getCameraData()
+        #pose = getPose()
+        beacon, pos = detect_beacons(pixel_data, pointcloud_data, beacons)
         if not pos:
             continue
         map_coord = transform(pos, pose)
@@ -47,6 +51,7 @@ def main():
     # beacons all found
 
     #TODO save map
+    subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "$(find turtlebot3_navigation)/maps/map.yaml"])
     cmd_pub.publish("stop") #stop wall following
 
     #TODO launch navigation with map file argument
@@ -60,30 +65,6 @@ def main():
     origin_pub.publish(origin)
 
 
-
-class image_converter:
-
-    def __init__(self):
-        self.image_pub = rospy.Publisher("image_topic_2",Image, queue_size=1)
-        self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber("/camera/rgb/image_raw",Image,self.callback)
-
-    def callback(self,data):
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        except CvBridgeError as e:
-            print(e)
-        (rows,cols,channels) = cv_image.shape
-        if cols > 60 and rows > 60 :
-            cv2.circle(cv_image, (50,50), 10, 255)
-            cv2.imshow("Image window", cv_image)
-            cv2.waitKey(3)
-        try:
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-        except CvBridgeError as e:
-            print(e)
-
-
 def getCameraData():
     #TODO check if subscribed topics correct
     """
@@ -91,16 +72,16 @@ def getCameraData():
     :return: RGB and depth data
     """
     pixel_data = None
-    depth_data = None
-    while not pixel_data or not depth_data:
+    pointcloud_data = None
+    while not pixel_data or not pointcloud_data:
         try:
-            pixel_data = rospy.wait_for_message("/camera/color/image_raw", Image, timeout=1)
-            #pixel_data = rospy.wait_for_message("/camera/rgb/image_raw", Image, timeout=1)
-            depth_data = rospy.wait_for_message("/camera/depth/image_raw", Image, timeout=1)
+            #pixel_data = rospy.wait_for_message("/camera/color/image_raw", Image, timeout=1)
+            pixel_data = rospy.wait_for_message("/camera/rgb/image_raw", Image, timeout=1)
+            pointcloud_data = rospy.wait_for_message("/camera/depth/points", PointCloud2, timeout=1)
         except Exception as e:
             print(e)
             pass
-    return pixel_data, depth_data
+    return pixel_data, pointcloud_data
 
 def getPose():
     """
@@ -110,34 +91,41 @@ def getPose():
     pose = None
     while not pose:
         try:
-            print("waiting for odom")
             odom = rospy.wait_for_message("/odom", Odometry, timeout=1)
         except Exception as e:
             print(e)
             pass
-        return [0,0,0]
     return odom.pose.pose
 
-def detect_beacons(pixel_data, depth_data, beacons):
+
+def detect_beacons(pixel_data, pointcloud_data, beacons):
+    #TODO something in opencv using RGBD
+    """
+    Detect beacons from RGB data and map to Depth data
+    :param pixel_data: Image (something from realsense camera)
+    :param depth_data: Image
+    :param beacons: set of beacons remaining to be found
+    :return: position of detected beacon or None if not found
+    """
     bridge = CvBridge()
     colour = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
-    depth = bridge.imgmsg_to_cv2(depth_data, "32FC1")
-
-    colour_boundaries = [
-        #(([100,40,160], [170,100,255]))
-        
-        (([0,0,0], [255,255,255]))
-        ##[0, 100, 0], [20, 130, 20]),
-        #([86, 31, 4], [220, 88, 50]),
-        #([25, 146, 190], [62, 174, 250]),
-        #([103, 86, 65], [145, 133, 128])
-    ]
-
+    #print(type(depth_data))
+    for p in pc2.read_points(pointcloud_data, field_names = ("x", "y", "z"), skip_nans=True):
+        print(p[0], p[1], p[2])
+    #print(depth)
+    #print(len(depth))
+    #depth = bridge.imgmsg_to_cv2(depth_data, "32FC1")
+    #print(colour.shape[0] )
+    colour_boundaries = {
+        "pink" : ([100, 40, 160], [170, 100, 255]), 
+        "blue" : ([80, 70 , 20], [200, 170 , 50]),
+        "green" : ([80, 70 , 20], [200, 170 , 50]),
+        "yellow" : ([80, 70 , 20], [200, 170 , 50])
+    }
     # blue: 
-
-    for (lower, upper) in colour_boundaries:
-        lower = np.array(lower, dtype = "uint8")
-        upper = np.array(upper, dtype = "uint8")
+    for (beacon_colour, boundary) in colour_boundaries.items():
+        lower = np.array(boundary[0], dtype = "uint8")
+        upper = np.array(boundary[1], dtype = "uint8")
         
         mask = cv2.inRange(colour, lower, upper)
         output = cv2.bitwise_and(colour, colour, mask = mask)
@@ -174,13 +162,21 @@ def detect_beacons(pixel_data, depth_data, beacons):
     return beacon, pos
 
 def transform(pos, baseframe):
-    #TODO do transformation (remember robot origin is different from camera pos)
     """
     Convert coordinate in camera frame to world frame
     :param pos: coordinate of beacon in camera frame
     :param baseframe: robot pose (coordinate, orientation)
     :return: coordinate of beacon in world frame
     """
+    tf = TransformListener()
+
+    if tf.frameExists("/world") and tf.frameExists("/camera_depth_frame"):
+        time = tf_listener.getLatestCommonTime("/world", "/camera_depth_frame")
+        translation, rotation = tf.lookupTransform("/world", "/camera_depth_frame", time)
+        # get a transform matrix
+        transform = tf.fromTranslationRotation(translation, rotation)
+        pos = transform * pos # apply the transform to the beacon coordinate
+
     return pos
 
 def publish_beacon(beacon_pub, beacon, map_coord):
@@ -195,9 +191,3 @@ def publish_beacon(beacon_pub, beacon, map_coord):
 
 if __name__ == "__main__":
     main()
-    #ic = image_converter()
-    #rospy.init_node('image_converter', anonymous=True)
-    #try:
-    #    rospy.spin()
-    #except KeyboardInterrupt:
-    #    cv2.destroyAllWindows()
