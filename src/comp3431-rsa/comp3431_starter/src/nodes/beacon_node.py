@@ -18,6 +18,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 from locate import centers_from_range, find_beacon
 
+
 class Beacon:
     def __init__(self, id, top, bottom):
         self.id = id
@@ -39,6 +40,14 @@ class Beacon:
             z_sum += z
         return (x_sum/length, y_sum/length, z_sum/length)
 
+    def find_pos(self, ranges, pointcloud_data):
+        x, y = find_beacon(ranges[self.top], ranges[self.bottom])
+        if not x:
+            return
+        print("found beacon {self.id}")
+        pos = transform(pointcloud_data[x][y])
+        self.add_pos(pos)
+
 
 def main():
     rospy.init_node("comp3431_starter_beacons")
@@ -53,23 +62,15 @@ def main():
     ]
     # beacons = set(beacons)
     cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
-    origin_pub = rospy.Publisher("move_base_simple/goal", PoseStamped, queue_size=1)
+    origin_pub = rospy.Publisher(
+        "move_base_simple/goal", PoseStamped, queue_size=1)
     rospy.sleep(1)
-    cmd_pub.publish("start") #start wall following
+    cmd_pub.publish("start")  # start wall following
     start = time.time()
     while beacons and time.time()-start < 20:
 
         pixel_data, pointcloud_data = getCameraData()
-        pairs = detect_beacons(pixel_data, pointcloud_data, beacons)
-
-        if not pairs:
-            continue
-        for beacon, pos in pairs:
-            print(beacon, pos)
-            map_coord = transform(pos)
-            print(beacon, pos)
-            beacon.add_pos(map_coord)
-
+        detect_beacons(pixel_data, pointcloud_data, beacons)
 
     # beacons all found
     for beacon in beacons:
@@ -77,7 +78,7 @@ def main():
 
     # #TODO save map
     # subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
-    cmd_pub.publish("stop") #stop wall following
+    cmd_pub.publish("stop")  # stop wall following
     cmd_pub.publish("start_nav")
     # #TODO launch navigation with map file argument
     # subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch", "map_file:=/home/rsa/turtlebot/src/comp3431-rsa/comp3431_starter/src/nodes/test.yaml"])
@@ -96,7 +97,7 @@ def main():
 
 
 def getCameraData():
-    #TODO check if subscribed topics correct
+    # TODO check if subscribed topics correct
     """
     Subscriber function for camera data
     :return: RGB and depth data
@@ -106,8 +107,10 @@ def getCameraData():
     while pixel_data is None or pcl is None:
         try:
             #pixel_data = rospy.wait_for_message("/camera/color/image_raw", Image, timeout=1)
-            pixel_data = rospy.wait_for_message("/camera/rgb/image_raw", Image, timeout=1)
-            pointcloud_data = rospy.wait_for_message("/camera/depth/points", PointCloud2, timeout=1)
+            pixel_data = rospy.wait_for_message(
+                "/camera/rgb/image_raw", Image, timeout=1)
+            pointcloud_data = rospy.wait_for_message(
+                "/camera/depth/points", PointCloud2, timeout=1)
             pcl = pointcloud2_to_array(pointcloud_data)
         except Exception as e:
             print(e)
@@ -130,7 +133,6 @@ def getCameraData():
 
 
 def detect_beacons(pixel_data, pointcloud_data, beacons):
-    #TODO something in opencv using RGBD
     """
     Detect beacons from RGB data and map to Depth data
     :param pixel_data: Image (something from realsense camera)
@@ -141,33 +143,23 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     print("detecting beacons")
     bridge = CvBridge()
     img = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
-    #print(img.shape)
-    #print(type(depth_data))
+    # print(img.shape)
+    # print(type(depth_data))
     # for p in pc2.read_points(pointcloud_data, field_names = ("x", "y", "z"), skip_nans=True):
     #     print(p[0], p[1], p[2])
 
-    pinks = centers_from_range(img, (140, 40, 70), (255, 130, 200))
-    blues = centers_from_range(img, (0, 70, 100), (50, 170, 200))
-    greens = centers_from_range(img, (0, 60, 40), (50, 130, 110))
-    yellows = centers_from_range(img, (0, 60, 40), (10, 70, 50)) # not correct range
-
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    beacon0 = find_beacon(pinks, greens)
-    beacon1 = find_beacon(blues, pinks)
-    beacon2 = find_beacon(pinks, yellows)
-    beacon3 = find_beacon(yellows, pinks)
-    print(beacon0, beacon1, beacon2, beacon3)
+    ranges = {
+        "pink": centers_from_range(img, (140, 40, 70), (255, 130, 200)),
+        "blue": centers_from_range(img, (0, 70, 100), (50, 170, 200)),
+        "green": centers_from_range(img, (0, 60, 40), (50, 130, 110)),
+        # not correct range
+        "yellow": centers_from_range(img, (0, 60, 40), (10, 70, 50))
+    }
 
-    res = []
-    if beacon0:
-        res.append((beacons[0], pointcloud_data[beacon0[0]][beacon0[1]]))
-    if beacon1:
-        res.append((beacons[1], pointcloud_data[beacon1[0]][beacon1[1]]))
-    if beacon2:
-        res.append((beacons[2], pointcloud_data[beacon2[0]][beacon2[1]]))
-    if beacon3:
-        res.append((beacons[3], pointcloud_data[beacon3[0]][beacon3[1]]))
-    return res
+    for beacon in beacons:
+        beacon.find_pos(ranges, pointcloud_data)
+
 
 def transform(pos):
     """
@@ -180,14 +172,16 @@ def transform(pos):
 
     if tf.frameExists("/map") and tf.frameExists("/camera_depth_frame"):
         time = tf.getLatestCommonTime("/map", "/camera_depth_frame")
-        translation, rotation = tf.lookupTransform("/map", "/camera_depth_frame", time)
+        translation, rotation = tf.lookupTransform(
+            "/map", "/camera_depth_frame", time)
         # get a transform matrix
         transform = tf.fromTranslationRotation(translation, rotation)
-        pos = transform * pos # apply the transform to the beacon coordinate
+        pos = transform * pos  # apply the transform to the beacon coordinate
     return pos
 
+
 def publish_beacon(beacon_pub, beacon):
-    #TODO populate fields of marker using coord and beacon info
+    # TODO populate fields of marker using coord and beacon info
     """
     :param beacon_pub: publisher handle
     :param beacon: Beacon object
@@ -195,13 +189,13 @@ def publish_beacon(beacon_pub, beacon):
     """
 
     marker = Marker()
-    marker.header.frame_id = "/world" #not sure if correct frame ###############
+    marker.header.frame_id = "/world"  # not sure if correct frame ###############
     marker.header.stamp = rospy.get_rostime()
     marker.ns = "beacon_shapes"
     marker.id = 0
-    marker.type = 3 #cylinder shape
-    marker.action = 0 #add/modify shape
-    #placement of shape
+    marker.type = 3  # cylinder shape
+    marker.action = 0  # add/modify shape
+    # placement of shape
 
     map_coord = beacon.average_postion()
     marker.pose.position.x = map_coord[0]
@@ -211,16 +205,16 @@ def publish_beacon(beacon_pub, beacon):
     marker.pose.orientation.y = 0.0
     marker.pose.orientation.z = 0.0
     marker.pose.orientation.w = 1.0
-    #size of shape, maybe modify
+    # size of shape, maybe modify
     marker.scale.x = 1.0
     marker.scale.y = 1.0
     marker.scale.z = 1.0
-    #colour of shape, green atm, maybe modify based on beacon param
+    # colour of shape, green atm, maybe modify based on beacon param
     marker.color.r = 0.0
     marker.color.g = 1.0
     marker.color.b = 0.0
     marker.color.a = 1.0
-    marker.lifetime = rospy.Duration(0) #does not delete shape
+    marker.lifetime = rospy.Duration(0)  # does not delete shape
 
     beacon_pub.publish(marker)
 
@@ -231,9 +225,11 @@ def pointcloud2_to_array(cloud_msg):
 
     Assumes all fields 32 bit floats, and there is no padding.
     '''
-    points = np.array([p for p in pc2.read_points(cloud_msg, field_names = ("x", "y", "z"), skip_nans=False)])
+    points = np.array([p for p in pc2.read_points(
+        cloud_msg, field_names=("x", "y", "z"), skip_nans=False)])
     # print(np.shape(points), cloud_msg.height, cloud_msg.width)
     return np.reshape(points, (cloud_msg.height, cloud_msg.width, 3))
+
 
 if __name__ == "__main__":
     main()

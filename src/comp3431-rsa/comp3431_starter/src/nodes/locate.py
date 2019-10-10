@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-from matplotlib import pyplot as plt
 
 
 def show(*images):
@@ -69,29 +68,29 @@ def centers_from_range(img, lo, hi):
     mask = cv2.inRange(img, lo, hi)
     half = cv2.bitwise_and(img, img, mask=mask)
     #cv2.imshow("half", half)
-    #cv2.waitKey(0)
+    # cv2.waitKey(0)
     return centers_from_mask(half)
 
 
-def find_beacon(bottom, top):
+def find_beacon(top, bottom):
     """
     return: center pixel of top section if this beacon is in the view
     """
     for (xb, yb) in bottom:
         for (xt, yt) in top:
             if abs(xb - xt) < 15 and yt < yb:
-                xt , yt = int(xt*0.75), int(yt*0.75)
+                xt, yt = int(xt*0.75), int(yt*0.75)
                 return (yt, xt)
 
 
-if __name__ == "main":
+if __name__ == "__main__":
+    from matplotlib import pyplot as plt
     ranges = {
         "pink": ((140, 40, 70), (255, 130, 200)),
         "blue": ((0, 70, 100), (50, 170, 200)),
         "green": ((0, 60, 40), (50, 130, 110)),
         "fake": ((0, 60, 40), (10, 70, 50)),
     }
-
 
     img = np.load("unfiltered.npy")
     pinks = centers_from_range(img, *ranges["pink"])
