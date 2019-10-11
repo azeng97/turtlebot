@@ -26,9 +26,10 @@ class Beacon:
         self.all_positions = []
 
     def add_pos(self, pos):
-        self.all_positions.append(pos)
+        if (pos[0]):
+            self.all_positions.append(pos)
 
-    def average_postion(self):
+    def average_position(self):
         x_sum = y_sum = z_sum = 0
         length = len(self.all_positions)
         if not length:
@@ -42,7 +43,7 @@ class Beacon:
 
 def main():
     rospy.init_node("comp3431_starter_beacons")
-    beacon_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=1)
+    beacon_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=100)
     # rospy.Subscriber("/color/image_raw", Float64MultiArray, pixel_rgb)
     # rospy.Subscriber("/depth/image_raw", Float64MultiArray, pixel_depth)
     beacons = [
@@ -66,14 +67,20 @@ def main():
             continue
         for beacon, pos in pairs:
             print(beacon, pos)
-            map_coord = transform(pos)
-            print(beacon, pos)
-            beacon.add_pos(map_coord)
-
-
+            if (not np.isnan(pos[0])):
+                map_coord = transform(pos)
+                print(beacon, pos)
+                beacon.add_pos(map_coord)
+    global beacon_id
+    beacon_id = 0
     # beacons all found
     for beacon in beacons:
+        print("publishing")
+        rospy.sleep(1)
         publish_beacon(beacon_pub, beacon)
+        beacon_id += 1
+        
+        
 
     # #TODO save map
     # subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
@@ -93,6 +100,15 @@ def main():
     # origin.pose.orientation.z = 0
     # origin.pose.orientation.w = 1
     # origin_pub.publish(origin)
+
+
+    # Have to go into rviz and add Marker, give 30 seconds to do this
+    rospy.sleep(30)
+    for beacon in beacons:
+        print("publishing")
+        rospy.sleep(1)
+        publish_beacon(beacon_pub, beacon)
+        beacon_id += 1
 
 
 def getCameraData():
@@ -141,23 +157,57 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     print("detecting beacons")
     bridge = CvBridge()
     img = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
-    #print(img.shape)
-    #print(type(depth_data))
-    # for p in pc2.read_points(pointcloud_data, field_names = ("x", "y", "z"), skip_nans=True):
-    #     print(p[0], p[1], p[2])
+    #depth = bridge.imgmsg_to_cv2(pointcloud_data, "bgr8")
+    #cv2.imshow("depth", pointcloud_data)
+    #cv2.waitKey(0)
 
-    pinks = centers_from_range(img, (140, 40, 70), (255, 130, 200))
-    blues = centers_from_range(img, (0, 70, 100), (50, 170, 200))
-    greens = centers_from_range(img, (0, 60, 40), (50, 130, 110))
-    yellows = centers_from_range(img, (0, 60, 40), (10, 70, 50)) # not correct range
+    #BGR HSV: Pink
+    pink_lowerHSV = (150, 130, 140)
+    pink_upperHSV = (180, 210, 240)
+    pinks = centers_from_range(img, pink_lowerHSV, pink_upperHSV)
+
+    #BGR HSV: Blue
+    blue_lowerHSV = (80, 180, 90)
+    blue_upperHSV = (110, 255, 210)
+    blues = centers_from_range(img, blue_lowerHSV, blue_upperHSV)
+
+    #BGR HSV: Green
+    green_lowerHSV = (60, 180, 30)
+    green_upperHSV = (90, 255, 150)
+    greens = centers_from_range(img, green_lowerHSV, green_upperHSV)
+
+    #BGR HSV: Yellow:
+    yellow_lowerHSV = (0, 150, 100)
+    yellow_upperHSV = (40, 200, 200)
+    yellows = centers_from_range(img, yellow_lowerHSV, yellow_upperHSV)
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     beacon0 = find_beacon(pinks, greens)
     beacon1 = find_beacon(blues, pinks)
     beacon2 = find_beacon(pinks, yellows)
     beacon3 = find_beacon(yellows, pinks)
+
     print(beacon0, beacon1, beacon2, beacon3)
 
+    # if beacon0 and pointcloud_data[beacon0[0]][beacon0[1]].all():
+    #     beacons[0].add_pos(pointcloud_data[beacon0[0]][beacon0[1]])
+    #     print("0 added", pointcloud_data[beacon0[0]][beacon0[1]])
+    #     print("index ", beacon0[0], beacon0[1])
+    # if beacon1 and pointcloud_data[beacon1[0]][beacon1[1]].all():
+    #     beacons[1].add_pos(pointcloud_data[beacon1[0]][beacon1[1]])
+    #     print("1 added", pointcloud_data[beacon1[0]][beacon1[1]])
+    #     print("index ", beacon1[0], beacon1[1])
+    # if beacon2 and pointcloud_data[beacon2[0]][beacon2[1]].all():
+    #     beacons[2].add_pos(pointcloud_data[beacon2[0]][beacon2[1]])
+    #     print("2 added", pointcloud_data[beacon2[0]][beacon2[1]])
+    #     print("index ", beacon2[0], beacon2[1])
+    # if beacon3 and pointcloud_data[beacon3[0]][beacon3[1]].all():
+    #     beacons[3].add_pos(pointcloud_data[beacon3[0]][beacon3[1]])
+    #     print("3 added", pointcloud_data[beacon3[0]][beacon3[1]])
+    #     print("index ", beacon3[0], beacon3[1])
+
+    print(pointcloud_data.shape)
+    #print(img.shape)
     res = []
     if beacon0:
         res.append((beacons[0], pointcloud_data[beacon0[0]][beacon0[1]]))
@@ -167,6 +217,8 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
         res.append((beacons[2], pointcloud_data[beacon2[0]][beacon2[1]]))
     if beacon3:
         res.append((beacons[3], pointcloud_data[beacon3[0]][beacon3[1]]))
+    #print("res:")
+    #print(res)
     return res
 
 def transform(pos):
@@ -184,6 +236,8 @@ def transform(pos):
         # get a transform matrix
         transform = tf.fromTranslationRotation(translation, rotation)
         pos = transform * pos # apply the transform to the beacon coordinate
+    print("beacon coodinate:")
+    print(pos)
     return pos
 
 def publish_beacon(beacon_pub, beacon):
@@ -195,32 +249,35 @@ def publish_beacon(beacon_pub, beacon):
     """
 
     marker = Marker()
-    marker.header.frame_id = "/world" #not sure if correct frame ###############
+    marker.header.frame_id = "/map" #not sure if correct frame ###############
     marker.header.stamp = rospy.get_rostime()
     marker.ns = "beacon_shapes"
-    marker.id = 0
+    marker.id = beacon_id
+    print("beacon id: ", beacon_id)
     marker.type = 3 #cylinder shape
-    marker.action = 0 #add/modify shape
+    marker.action = marker.ADD #add/modify shape
     #placement of shape
 
-    map_coord = beacon.average_postion()
-    marker.pose.position.x = map_coord[0]
-    marker.pose.position.y = map_coord[1]
-    marker.pose.position.z = map_coord[2]
+    map_coord = beacon.average_position()
+
+    marker.pose.position.x = map_coord[2]
+    marker.pose.position.y = map_coord[0]
+    marker.pose.position.z = map_coord[1]
+    print("marker location:", marker.pose.position.x, marker.pose.position.y, marker.pose.position.z)
     marker.pose.orientation.x = 0.0
     marker.pose.orientation.y = 0.0
     marker.pose.orientation.z = 0.0
     marker.pose.orientation.w = 1.0
     #size of shape, maybe modify
-    marker.scale.x = 1.0
-    marker.scale.y = 1.0
-    marker.scale.z = 1.0
+    marker.scale.x = 0.25
+    marker.scale.y = 0.25
+    marker.scale.z = 0.25
     #colour of shape, green atm, maybe modify based on beacon param
     marker.color.r = 0.0
     marker.color.g = 1.0
     marker.color.b = 0.0
     marker.color.a = 1.0
-    marker.lifetime = rospy.Duration(0) #does not delete shape
+    marker.lifetime = rospy.Duration(100) #does not delete shape
 
     beacon_pub.publish(marker)
 
