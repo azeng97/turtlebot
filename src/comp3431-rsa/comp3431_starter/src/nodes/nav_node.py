@@ -43,10 +43,10 @@ def cmd_callback(data):
         init.header.frame_id = "map"
         init.pose.pose = pose
 
-        subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
-        subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch",
-                          "map_file:=/home/azeng/turtle_ws/src/comp3431-rsa/comp3431_starter/src/nodes/test.yaml"])
-        rospy.sleep(10)
+        # subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
+        # subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch",
+        #                   "map_file:=/home/rsa/turtlebot/src/comp3431-rsa/comp3431_starter/src/nodes/test.yaml"])
+        rospy.sleep(15)
         print("Publishing initial:")
         print(init)
         init_pub.publish(init)

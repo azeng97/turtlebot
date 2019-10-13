@@ -15,7 +15,7 @@ def show(*images):
 
 
 def valid_contour(contour):
-    if cv2.contourArea(contour) < 1000:
+    if cv2.contourArea(contour) < 200:
         return False
     x, y, w, h = cv2.boundingRect(contour)
     ratio = float(w)/h
