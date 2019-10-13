@@ -84,7 +84,9 @@ def main():
 
     # #TODO save map
     # subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
+    rospy.sleep(1)
     cmd_pub.publish("stop") #stop wall following
+    rospy.sleep(1)
     cmd_pub.publish("start_nav")
     # #TODO launch navigation with map file argument
     # subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch", "map_file:=/home/rsa/turtlebot/src/comp3431-rsa/comp3431_starter/src/nodes/test.yaml"])
@@ -162,23 +164,23 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     #cv2.waitKey(0)
 
     #BGR HSV: Pink
-    pink_lowerHSV = (150, 130, 140)
+    pink_lowerHSV = (150, 130, 80)
     pink_upperHSV = (180, 210, 240)
     pinks = centers_from_range(img, pink_lowerHSV, pink_upperHSV)
 
     #BGR HSV: Blue
-    blue_lowerHSV = (80, 180, 90)
+    blue_lowerHSV = (80, 140, 70)
     blue_upperHSV = (110, 255, 210)
     blues = centers_from_range(img, blue_lowerHSV, blue_upperHSV)
 
     #BGR HSV: Green
-    green_lowerHSV = (60, 180, 30)
+    green_lowerHSV = (50, 100, 15)
     green_upperHSV = (90, 255, 150)
     greens = centers_from_range(img, green_lowerHSV, green_upperHSV)
 
     #BGR HSV: Yellow:
     yellow_lowerHSV = (0, 150, 100)
-    yellow_upperHSV = (40, 200, 200)
+    yellow_upperHSV = (40, 255, 200)
     yellows = centers_from_range(img, yellow_lowerHSV, yellow_upperHSV)
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -260,6 +262,9 @@ def publish_beacon(beacon_pub, beacon):
 
     map_coord = beacon.average_position()
 
+    # marker.pose.position.x = map_coord[2]
+    # marker.pose.position.y = map_coord[0]
+    # marker.pose.position.z = map_coord[1]
     marker.pose.position.x = map_coord[2]
     marker.pose.position.y = map_coord[0]
     marker.pose.position.z = map_coord[1]
