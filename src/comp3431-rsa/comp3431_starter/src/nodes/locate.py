@@ -15,13 +15,13 @@ def show(*images):
 
 
 def valid_contour(contour):
-    if cv2.contourArea(contour) < 5000:
+    if cv2.contourArea(contour) < 1000:
         return False
     x, y, w, h = cv2.boundingRect(contour)
     ratio = float(w)/h
-    if ratio > 1.1:
+    if ratio > 1.3:
         return False
-    if ratio < 0.65:
+    if ratio < 0.5:
         return False
     return True
 
@@ -36,6 +36,7 @@ def get_centers(contours):
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
         centers.append((int(x + w/2), int(y + h/2)))
+    print(centers)
     return centers
 
 
@@ -64,7 +65,12 @@ def centers_from_mask(img):
 
 
 def centers_from_range(img, lo, hi):
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    #cv2.imshow("img", img)
+    #cv2.waitKey(0)
+    #img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    #cv2.imshow("hsv", img)
+    #cv2.waitKey(0)
     mask = cv2.inRange(img, lo, hi)
     half = cv2.bitwise_and(img, img, mask=mask)
     #cv2.imshow("half", half)
@@ -78,8 +84,12 @@ def find_beacon(top, bottom):
     """
     for (xb, yb) in bottom:
         for (xt, yt) in top:
-            if abs(xb - xt) < 15 and yt < yb:
-                xt, yt = int(xt*0.75), int(yt*0.75)
+            if abs(xb - xt) < 50 and yt < yb:
+                #return int(((yb + yt) / 2) * 0.75), int(((xb + xt) / 2) * 0.75)
+
+                xt , yt = int(xt*0.75), int(yt*0.75)
+                #print("asdasdasd")
+                print(yt, xt)
                 return (yt, xt)
 
 
