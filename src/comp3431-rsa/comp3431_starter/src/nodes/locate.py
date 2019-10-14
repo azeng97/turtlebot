@@ -2,22 +2,6 @@ import numpy as np
 import cv2
 
 
-def show(*images):
-    cols = 3
-    num_rows = (len(images) - 1) // cols + 1
-    # plt.rcParams['figure.figsize'] = [20, 4 * num_rows]
-    if num_rows == 1:
-        plt.rcParams['figure.figsize'] = [20, 6]
-    else:
-        plt.rcParams['figure.figsize'] = [20, 9]
-    for i, im in enumerate(images):
-        plt.subplot(num_rows, cols, i+1)
-        plt.xticks([]), plt.yticks([])
-        plt.imshow(im, cmap='gray')
-    plt.show()
-    # plt.rcParams['figure.figsize'] = [20, 10]
-
-
 def valid_contour(contour):
     if cv2.contourArea(contour) < 200:
         return False
@@ -40,7 +24,6 @@ def get_centers(contours):
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
         centers.append((int(x + w/2), int(y + h/2)))
-    # print(centers)
     return centers
 
 
@@ -51,13 +34,6 @@ def remove_small_contours(img):
     for contour in contours:
         cv2.drawContours(mask, [contour], -1, 255, -1)
     return mask
-
-
-def draw_centers(centers, img):
-    img = img.copy()
-    for c in centers:
-        cv2.circle(img, c, 10, (0, 0, 0), -1)
-    return img
 
 
 def bounding_box(img):
@@ -71,16 +47,9 @@ def contours_from_mask(img):
 
 
 def contours_from_range(img, lo, hi):
-    #cv2.imshow("img", img)
-    #cv2.waitKey(0)
-    #img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    #cv2.imshow("hsv", img)
-    #cv2.waitKey(0)
     mask = cv2.inRange(img, lo, hi)
     half = cv2.bitwise_and(img, img, mask=mask)
-    #cv2.imshow("half", half)
-    # cv2.waitKey(0)
     return contours_from_mask(half)
 
 
@@ -98,20 +67,35 @@ def find_beacon(top, bottom):
                 continue
             if by - ty - th > bh/2:
                 continue
-            tx, ty = (int(tx + tw/2), int(ty + th/2))
-            # return tx, ty
-            #return int(((by + ty) / 2) * 0.75), int(((bx + tx) / 2) * 0.75)
+            tx, ty = (int(tx + tw/2), int(ty + th/2)) # setting them to the middle
 
             tx , ty = int(tx*0.75), int(ty*0.75)
-            #print("asdasdasd")
-            print(ty, tx)
             return (ty, tx)
 
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
-    img = np.load("5.npy")
+    def show(*images):
+        cols = 3
+        num_rows = (len(images) - 1) // cols + 1
+        if num_rows == 1:
+            plt.rcParams['figure.figsize'] = [20, 6]
+        else:
+            plt.rcParams['figure.figsize'] = [20, 9]
+        for i, im in enumerate(images):
+            plt.subplot(num_rows, cols, i+1)
+            plt.xticks([]), plt.yticks([])
+            plt.imshow(im, cmap='gray')
+        plt.show()
 
+    def draw_centers(centers, img):
+        img = img.copy()
+        for c in centers:
+            cv2.circle(img, c, 10, (0, 0, 0), -1)
+        return img
+
+
+    img = np.load("5.npy")
 
     ranges = {}
     #BGR HSV: Pink
@@ -144,9 +128,12 @@ if __name__ == "__main__":
     yellowpink = find_beacon(ranges["yellow"], ranges["pink"])
     bluepink = find_beacon(ranges["blue"], ranges["pink"])
     all = [pinkgreen, pinkyellow, pinkblue, greenpink, yellowpink, bluepink]
+    for i, pos in enumerate(all):
+        if pos:
+            all[i] = int(pos[1]*4/3), int(pos[0]*4/3)
 
     print(f"pinkgreen: {pinkgreen}, pinkyellow: {pinkyellow}, pinkblue: {pinkblue}\ngreenpink: {greenpink}, yellowpink: {yellowpink}, bluepink: {bluepink}")
-    # print(all)
+
     # show(pink, green, blue, yellow, draw_centers(all, cv2.cvtColor(img, cv2.COLOR_HSV2RGB)), cv2.cvtColor(img, cv2.COLOR_HSV2RGB))
     # show(bounding_box(pink), bounding_box(green), bounding_box(blue), bounding_box(yellow), img, cv2.cvtColor(img, cv2.COLOR_HSV2RGB))
-    # show(draw_centers(all, cv2.cvtColor(img, cv2.COLOR_HSV2RGB)))
+    show(draw_centers(all, cv2.cvtColor(img, cv2.COLOR_HSV2RGB)))
