@@ -66,13 +66,13 @@ def main():
 
     # beacons = set(beacons)
     rospy.Subscriber("cmd", String, start)
-    
+
     print("beacon node waiting for start cmd")
     rospy.spin()
 
 def start(data):
     beacons()
-    if data.data != "start": 
+    if data.data != "start":
         return
     else:
         print("starting beacon node")
@@ -86,7 +86,7 @@ def beacons():
         "move_base_simple/goal", PoseStamped, queue_size=1)
     rospy.sleep(1)
 
-    
+
     start = time.time()
     beacons = [
         Beacon(0, "pink", "green"),
@@ -94,7 +94,7 @@ def beacons():
         Beacon(2, "pink", "yellow"),
         Beacon(3, "yellow", "pink")
     ]
-    
+
     cmd_pub.publish("start")  # start wall following
     found_beacons = set()
     start = float("inf")
@@ -193,21 +193,21 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     #depth = bridge.imgmsg_to_cv2(pointcloud_data, "bgr8")
     #cv2.imshow("depth", pointcloud_data)
     #cv2.waitKey(0)
-    
+
     ranges = {}
     #BGR HSV: Pink
-    pink_lowerHSV = (150, 40, 80)
+    pink_lowerHSV = (150, 80, 80)
     pink_upperHSV = (180, 210, 255)
     ranges["pink"] = contours_from_range(img, pink_lowerHSV, pink_upperHSV)
 
     #BGR HSV: Blue
-    blue_lowerHSV = (80, 130, 55)
+    blue_lowerHSV = (84, 130, 55)
     blue_upperHSV = (110, 255, 255)
     ranges["blue"] = contours_from_range(img, blue_lowerHSV, blue_upperHSV)
 
     #BGR HSV: Green
     green_lowerHSV = (50, 100, 15)
-    green_upperHSV = (82, 255, 150)
+    green_upperHSV = (83, 255, 150)
     ranges["green"] = contours_from_range(img, green_lowerHSV, green_upperHSV)
 
     #BGR HSV: Yellow:
