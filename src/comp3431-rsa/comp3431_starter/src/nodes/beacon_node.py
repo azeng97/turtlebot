@@ -27,10 +27,10 @@ class Beacon:
         self.all_positions = []
 
     def add_pos(self, pos):
-        if (pos[0]):
-            self.all_positions.append(pos)
+        self.all_positions.append(pos)
 
     def average_position(self):
+        
         x_sum = y_sum = z_sum = 0
         length = len(self.all_positions)
         if not length:
@@ -39,13 +39,18 @@ class Beacon:
             x_sum += x
             y_sum += y
             z_sum += z
+        return self.all_positions[-1]
         return (x_sum/length, y_sum/length, z_sum/length)
 
     def find_pos(self, ranges, pointcloud_data):
-        x, y = find_beacon(ranges[self.top], ranges[self.bottom])
-        if not x:
+        print(self.top)
+        print(ranges)
+        print(ranges[self.top])
+        pos = find_beacon(ranges[self.top], ranges[self.bottom])
+        if not pos:
             return
-        print("found beacon {self.id}")
+        x, y = pos
+        print("found beacon", self.id)
         pos = pointcloud_data[x][y]
         if np.isnan(pos[0]):
             return
@@ -71,25 +76,25 @@ def main():
     rospy.sleep(1)
     cmd_pub.publish("start")  # start wall following
     start = time.time()
-    while beacons and time.time()-start < 20:
+    while beacons and time.time()-start < 40:
 
         pixel_data, pointcloud_data = getCameraData()
         detect_beacons(pixel_data, pointcloud_data, beacons)
+        for beacon in beacons:
+            print("publishing")
+            publish_beacon(beacon_pub, beacon)
 
 
-    global beacon_id
-    beacon_id = 0
+
     # beacons all found
     for beacon in beacons:
         print("publishing")
-        rospy.sleep(1)
         publish_beacon(beacon_pub, beacon)
-        beacon_id += 1
 
 
 
     # #TODO save map
-    # subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
+    #subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
     rospy.sleep(1)
     cmd_pub.publish("stop") #stop wall following
     rospy.sleep(1)
@@ -109,14 +114,6 @@ def main():
     # origin.pose.orientation.w = 1
     # origin_pub.publish(origin)
 
-
-    # Have to go into rviz and add Marker, give 30 seconds to do this
-    rospy.sleep(30)
-    for beacon in beacons:
-        print("publishing")
-        rospy.sleep(1)
-        publish_beacon(beacon_pub, beacon)
-        beacon_id += 1
 
 
 def getCameraData():
@@ -174,25 +171,24 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     ranges = {}
 
     #BGR HSV: Pink
-    pink_lowerHSV = (150, 130, 80)
-    pink_upperHSV = (180, 210, 240)
+    pink_lowerHSV = (150, 40, 80)
+    pink_upperHSV = (180, 210, 255)
     ranges["pink"] = centers_from_range(img, pink_lowerHSV, pink_upperHSV)
 
     #BGR HSV: Blue
-    blue_lowerHSV = (80, 140, 70)
-    blue_upperHSV = (110, 255, 210)
+    blue_lowerHSV = (80, 130, 55)
+    blue_upperHSV = (110, 255, 255)
     ranges["blue"] = centers_from_range(img, blue_lowerHSV, blue_upperHSV)
 
     #BGR HSV: Green
     green_lowerHSV = (50, 100, 15)
-    green_upperHSV = (90, 255, 150)
+    green_upperHSV = (85, 255, 150)
     ranges["green"] = centers_from_range(img, green_lowerHSV, green_upperHSV)
 
     #BGR HSV: Yellow:
-    yellow_lowerHSV = (0, 150, 100)
-    yellow_upperHSV = (40, 255, 200)
+    yellow_lowerHSV = (0, 120, 50)
+    yellow_upperHSV = (30, 255, 255)
     ranges["yellow"] = centers_from_range(img, yellow_lowerHSV, yellow_upperHSV)
-
     for beacon in beacons:
         beacon.find_pos(ranges, pointcloud_data)
 
@@ -203,18 +199,26 @@ def transform(pos):
     :param baseframe: robot pose (coordinate, orientation)
     :return: coordinate of beacon in world frame
     """
-    tf = TransformListener()
 
-    if tf.frameExists("/map") and tf.frameExists("/camera_depth_frame"):
-        time = tf.getLatestCommonTime("/map", "/camera_depth_frame")
-        translation, rotation = tf.lookupTransform(
-            "/map", "/camera_depth_frame", time)
-        # get a transform matrix
-        transform = tf.fromTranslationRotation(translation, rotation)
-        pos = transform * pos # apply the transform to the beacon coordinate
-    print("beacon coodinate:")
-    print(pos)
-    return pos
+    p1 = PoseStamped()
+    p1.header.frame_id = "camera_link"
+    p1.pose.orientation.w = 1.0
+    p1.pose.position.x = pos[2]
+    p1.pose.position.y = pos[0]
+    p1.pose.position.z = pos[1]
+    tf = TransformListener()
+    tf.waitForTransform("/camera_link", "/map", rospy.Time(0), rospy.Duration(4.0))
+    while not rospy.is_shutdown():
+        try:
+            tf.waitForTransform("/camera_link", "/map", rospy.Time(0), rospy.Duration(4.0))
+            break
+        except:
+            print("except")
+            pass
+
+    p_in_base = tf.transformPose("/map", p1)
+
+    return [p_in_base.pose.position.x, p_in_base.pose.position.y, p_in_base.pose.position.z]
 
 
 def publish_beacon(beacon_pub, beacon):
@@ -226,23 +230,22 @@ def publish_beacon(beacon_pub, beacon):
     """
 
     marker = Marker()
-    marker.header.frame_id = "/map" #not sure if correct frame ###############
+    marker.header.frame_id = "map" #not sure if correct frame ###############
     marker.header.stamp = rospy.get_rostime()
     marker.ns = "beacon_shapes"
-    marker.id = beacon_id
-    print("beacon id: ", beacon_id)
+    marker.id = beacon.id
     marker.type = 3 #cylinder shape
     marker.action = marker.ADD #add/modify shape
     #placement of shape
 
     map_coord = beacon.average_position()
 
-    # marker.pose.position.x = map_coord[2]
-    # marker.pose.position.y = map_coord[0]
+    marker.pose.position.x = map_coord[0]
+    marker.pose.position.y = map_coord[1]
+    marker.pose.position.z = map_coord[2]
+    # marker.pose.position.x = map_coord[0]
+    # marker.pose.position.y = map_coord[2]
     # marker.pose.position.z = map_coord[1]
-    marker.pose.position.x = map_coord[2]
-    marker.pose.position.y = map_coord[0]
-    marker.pose.position.z = map_coord[1]
     print("marker location:", marker.pose.position.x, marker.pose.position.y, marker.pose.position.z)
     marker.pose.orientation.x = 0.0
     marker.pose.orientation.y = 0.0
@@ -253,10 +256,31 @@ def publish_beacon(beacon_pub, beacon):
     marker.scale.y = 0.25
     marker.scale.z = 0.25
     #colour of shape, green atm, maybe modify based on beacon param
-    marker.color.r = 0.0
-    marker.color.g = 1.0
-    marker.color.b = 0.0
-    marker.color.a = 1.0
+    if (marker.id == 0):
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+        print("plot 0")
+    elif (marker.id == 1):
+        marker.color.r = 0.0
+        marker.color.g = 0.0
+        marker.color.b = 1.0
+        marker.color.a = 1.0
+        print("plot 1")
+    elif (marker.id == 2):
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 1.0
+        marker.color.a = 1.0
+        print("plot 2")
+    elif (marker.id == 3):
+        marker.color.r = 1.0
+        marker.color.g = 1.0
+        marker.color.b = 1.0
+        marker.color.a = 1.0
+        print("plot 3")
+
     marker.lifetime = rospy.Duration(100) #does not delete shape
 
     beacon_pub.publish(marker)
