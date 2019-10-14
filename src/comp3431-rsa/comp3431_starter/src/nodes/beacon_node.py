@@ -78,7 +78,6 @@ def main():
     found_beacons = set()
     start = float("inf")
     while time.time() - start < 5:
-
         pixel_data, pointcloud_data = getCameraData()
         detect_beacons(pixel_data, pointcloud_data, beacons)
         for beacon in beacons:
@@ -86,7 +85,7 @@ def main():
             publish_beacon(beacon_pub, beacon)
             found_beacons.add(beacon.id)
 
-        if len(found_beacons) < len(beacons):
+        if len(found_beacons) == len(beacons) and start == float("inf"):
             start = time.time()
 
 

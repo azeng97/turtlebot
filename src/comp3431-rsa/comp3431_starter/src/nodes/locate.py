@@ -120,7 +120,6 @@ if __name__ == "__main__":
 
 
 
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     pinkgreen = find_beacon(ranges["pink"], ranges["green"])
     pinkyellow = find_beacon(ranges["pink"], ranges["yellow"])
     pinkblue = find_beacon(ranges["pink"], ranges["blue"])
@@ -132,8 +131,10 @@ if __name__ == "__main__":
         if pos:
             all[i] = int(pos[1]*4/3), int(pos[0]*4/3)
 
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     print(f"pinkgreen: {pinkgreen}, pinkyellow: {pinkyellow}, pinkblue: {pinkblue}\ngreenpink: {greenpink}, yellowpink: {yellowpink}, bluepink: {bluepink}")
 
     # show(pink, green, blue, yellow, draw_centers(all, cv2.cvtColor(img, cv2.COLOR_HSV2RGB)), cv2.cvtColor(img, cv2.COLOR_HSV2RGB))
     # show(bounding_box(pink), bounding_box(green), bounding_box(blue), bounding_box(yellow), img, cv2.cvtColor(img, cv2.COLOR_HSV2RGB))
-    show(draw_centers(all, cv2.cvtColor(img, cv2.COLOR_HSV2RGB)))
+    # show(draw_centers(all, cv2.cvtColor(img, cv2.COLOR_HSV2RGB)))
+    show(draw_centers(all, img))
