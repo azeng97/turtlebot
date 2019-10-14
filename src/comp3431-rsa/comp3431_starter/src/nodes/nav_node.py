@@ -31,6 +31,8 @@ def main():
     origin = PoseStamped()
     origin.header.frame_id = "map"
     origin.pose = getPose()
+    cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
+    cmd_pub.publish("start")
     print("Waiting for message")
     rospy.spin()
 

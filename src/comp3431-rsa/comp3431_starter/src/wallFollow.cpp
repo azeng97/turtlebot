@@ -17,7 +17,7 @@
 #define ROBOT_RADIUS        0.20
 
 #define MAX_SPEED       0.25
-#define MAX_TURN        1.0
+#define MAX_TURN        0.5
 
 #define CLIP_0_1(X)         ((X) < 0?0:(X)>1?1:(X))
 

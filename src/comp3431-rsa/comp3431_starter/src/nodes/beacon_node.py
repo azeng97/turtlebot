@@ -39,7 +39,7 @@ class Beacon:
             x_sum += x
             y_sum += y
             z_sum += z
-        return self.all_positions[-1]
+        #return self.all_positions[-1]
         return (x_sum/length, y_sum/length, z_sum/length)
 
     def find_pos(self, ranges, pointcloud_data):
@@ -63,19 +63,37 @@ def main():
     beacon_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=100)
     # rospy.Subscriber("/color/image_raw", Float64MultiArray, pixel_rgb)
     # rospy.Subscriber("/depth/image_raw", Float64MultiArray, pixel_depth)
+
+    # beacons = set(beacons)
+    
+    print("beacon node waiting for start cmd")
+    rospy.spin()
+
+def start(data):
+    if data.data != "start": 
+        return
+    else:
+        print("starting beacon node")
+        beacons()
+
+def beacons():
+
+
+    cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
+    origin_pub = rospy.Publisher(
+        "move_base_simple/goal", PoseStamped, queue_size=1)
+    rospy.sleep(1)
+
+    rospy.Subscriber("cmd", String, start)
+    
+    start = time.time()
     beacons = [
         Beacon(0, "pink", "green"),
         Beacon(1, "blue", "pink"),
         Beacon(2, "pink", "yellow"),
         Beacon(3, "yellow", "pink")
     ]
-    # beacons = set(beacons)
-    cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
-    origin_pub = rospy.Publisher(
-        "move_base_simple/goal", PoseStamped, queue_size=1)
-    rospy.sleep(1)
-    cmd_pub.publish("start")  # start wall following
-    start = time.time()
+    
     while beacons and time.time()-start < 40:
 
         pixel_data, pointcloud_data = getCameraData()
