@@ -25,8 +25,9 @@ class NavPath(object):
         else:
             last = self._path[-1]
             coords = (msg.pose.pose.position.x, msg.pose.pose.position.y)
-            if np.linalg.norm((last.x, last.y)-coords) > 0.1:
+            if np.linalg.norm((last.x-coords[0], last.y-coords[1])) > 0.1:
                 self._path.append(msg.pose.pose.position)
+            print(len(self._path))
         show_path_in_rviz(marker_publisher, self._path)
 
 def show_path_in_rviz(marker_publisher, points):

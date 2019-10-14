@@ -60,7 +60,7 @@ class Beacon:
 
 def main():
     rospy.init_node("comp3431_starter_beacons")
-    
+    beacons()
     # rospy.Subscriber("/color/image_raw", Float64MultiArray, pixel_rgb)
     # rospy.Subscriber("/depth/image_raw", Float64MultiArray, pixel_depth)
 
@@ -71,6 +71,7 @@ def main():
     rospy.spin()
 
 def start(data):
+    beacons()
     if data.data != "start": 
         return
     else:
@@ -189,11 +190,11 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     print("detecting beacons")
     bridge = CvBridge()
     img = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
-
+    np.save("10", img)
     #depth = bridge.imgmsg_to_cv2(pointcloud_data, "bgr8")
     #cv2.imshow("depth", pointcloud_data)
     #cv2.waitKey(0)
-
+    
     ranges = {}
     #BGR HSV: Pink
     pink_lowerHSV = (150, 40, 80)
