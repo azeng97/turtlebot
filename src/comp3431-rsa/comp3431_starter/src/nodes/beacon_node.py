@@ -16,7 +16,7 @@ import sensor_msgs.point_cloud2 as pc2
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
-from locate import centers_from_range, find_beacon
+from locate import contours_from_range, find_beacon
 
 
 class Beacon:
