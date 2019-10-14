@@ -30,7 +30,7 @@ class Beacon:
         self.all_positions.append(pos)
 
     def average_position(self):
-        
+
         x_sum = y_sum = z_sum = 0
         length = len(self.all_positions)
         if not length:
@@ -75,14 +75,20 @@ def main():
         "move_base_simple/goal", PoseStamped, queue_size=1)
     rospy.sleep(1)
     cmd_pub.publish("start")  # start wall following
-    start = time.time()
-    while beacons and time.time()-start < 40:
+    found_beacons = set()
+    start = float("inf")
+    while time.time() - start < 5:
 
         pixel_data, pointcloud_data = getCameraData()
         detect_beacons(pixel_data, pointcloud_data, beacons)
         for beacon in beacons:
             print("publishing")
             publish_beacon(beacon_pub, beacon)
+            found_beacons.add(beacon.id)
+
+        if len(found_beacons) < len(beacons):
+            start = time.time()
+
 
 
 
