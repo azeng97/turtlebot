@@ -1,2 +1,0 @@
-set(crosbot_msgs_MESSAGE_FILES "/home/azeng/turtle_ws/src/crosbot/crosbot_msgs/msg/geometry/ColouredPointMsg.msg;/home/azeng/turtle_ws/src/crosbot/crosbot_msgs/msg/geometry/ColourMsg.msg;/home/azeng/turtle_ws/src/crosbot/crosbot_msgs/msg/geometry/PointCloudMsg.msg;/home/azeng/turtle_ws/src/crosbot/crosbot_msgs/msg/controls/ControlCommand.msg;/home/azeng/turtle_ws/src/crosbot/crosbot_msgs/msg/controls/ControlStatus.msg;/home/azeng/turtle_ws/src/crosbot/crosbot_msgs/msg/data/StringArray.msg")
-set(crosbot_msgs_SERVICE_FILES "")

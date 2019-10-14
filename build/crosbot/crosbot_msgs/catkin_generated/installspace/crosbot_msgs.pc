@@ -1,8 +1,0 @@
-prefix=/home/azeng/turtle_ws/install
-
-Name: crosbot_msgs
-Description: Description of crosbot_msgs
-Version: 1.0.0
-Cflags: -I/home/azeng/turtle_ws/install/include
-Libs: -L/home/azeng/turtle_ws/install/lib 
-Requires: std_msgs geometry_msgs sensor_msgs message_runtime message_runtime
