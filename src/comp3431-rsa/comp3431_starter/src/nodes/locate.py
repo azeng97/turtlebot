@@ -78,10 +78,7 @@ if __name__ == "__main__":
     def show(*images):
         cols = 3
         num_rows = (len(images) - 1) // cols + 1
-        if num_rows == 1:
-            plt.rcParams['figure.figsize'] = [20, 6]
-        else:
-            plt.rcParams['figure.figsize'] = [20, 9]
+        plt.rcParams['figure.figsize'] = [20, 7]
         for i, im in enumerate(images):
             plt.subplot(num_rows, cols, i+1)
             plt.xticks([]), plt.yticks([])
@@ -91,26 +88,26 @@ if __name__ == "__main__":
     def draw_centers(centers, img):
         img = img.copy()
         for c in centers:
-            cv2.circle(img, c, 10, (0, 0, 0), -1)
+            cv2.circle(img, c, 10, (255, 0, 0), -1)
         return img
 
 
-    img = np.load("5.npy")
+    img = np.load("10.npy")
 
     ranges = {}
     #BGR HSV: Pink
-    pink_lowerHSV = (150, 40, 80)
+    pink_lowerHSV = (150, 80, 80)
     pink_upperHSV = (180, 210, 255)
     ranges["pink"] = contours_from_range(img, pink_lowerHSV, pink_upperHSV)
 
     #BGR HSV: Blue
-    blue_lowerHSV = (80, 130, 55)
+    blue_lowerHSV = (84, 130, 55)
     blue_upperHSV = (110, 255, 255)
     ranges["blue"] = contours_from_range(img, blue_lowerHSV, blue_upperHSV)
 
     #BGR HSV: Green
     green_lowerHSV = (50, 100, 15)
-    green_upperHSV = (82, 255, 150)
+    green_upperHSV = (83, 255, 150)
     ranges["green"] = contours_from_range(img, green_lowerHSV, green_upperHSV)
 
     #BGR HSV: Yellow:
@@ -118,6 +115,15 @@ if __name__ == "__main__":
     yellow_upperHSV = (30, 255, 255)
     ranges["yellow"] = contours_from_range(img, yellow_lowerHSV, yellow_upperHSV)
 
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(img, pink_lowerHSV, pink_upperHSV)
+    pink = cv2.bitwise_and(img, img, mask=mask)
+    mask = cv2.inRange(img, blue_lowerHSV, blue_upperHSV)
+    blue = cv2.bitwise_and(img, img, mask=mask)
+    mask = cv2.inRange(img, green_lowerHSV, green_upperHSV)
+    green = cv2.bitwise_and(img, img, mask=mask)
+    mask = cv2.inRange(img, yellow_lowerHSV, yellow_upperHSV)
+    yellow = cv2.bitwise_and(img, img, mask=mask)
 
 
     pinkgreen = find_beacon(ranges["pink"], ranges["green"])
@@ -131,10 +137,11 @@ if __name__ == "__main__":
         if pos:
             all[i] = int(pos[1]*4/3), int(pos[0]*4/3)
 
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    print(f"pinkgreen: {pinkgreen}, pinkyellow: {pinkyellow}, pinkblue: {pinkblue}\ngreenpink: {greenpink}, yellowpink: {yellowpink}, bluepink: {bluepink}")
+    # img = cv2.cvtColor(img, cv2.COLOR_HSV2RGB)
+    # print(f"pinkgreen: {pinkgreen}, pinkyellow: {pinkyellow}, pinkblue: {pinkblue}\ngreenpink: {greenpink}, yellowpink: {yellowpink}, bluepink: {bluepink}")
 
-    # show(pink, green, blue, yellow, draw_centers(all, cv2.cvtColor(img, cv2.COLOR_HSV2RGB)), cv2.cvtColor(img, cv2.COLOR_HSV2RGB))
+    # print(len(contours_from_range(img, blue_lowerHSV, blue_upperHSV)))
+    print(len([i for i in all if i]))
+    show(pink, green, blue, yellow, draw_centers(all, cv2.cvtColor(img, cv2.COLOR_HSV2RGB)), img)
     # show(bounding_box(pink), bounding_box(green), bounding_box(blue), bounding_box(yellow), img, cv2.cvtColor(img, cv2.COLOR_HSV2RGB))
     # show(draw_centers(all, cv2.cvtColor(img, cv2.COLOR_HSV2RGB)))
-    show(draw_centers(all, img))
