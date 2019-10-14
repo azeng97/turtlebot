@@ -172,26 +172,25 @@ def detect_beacons(pixel_data, pointcloud_data, beacons):
     #cv2.waitKey(0)
 
     ranges = {}
-
     #BGR HSV: Pink
-    pink_lowerHSV = (150, 130, 80)
-    pink_upperHSV = (180, 210, 240)
-    ranges["pink"] = centers_from_range(img, pink_lowerHSV, pink_upperHSV)
+    pink_lowerHSV = (150, 40, 80)
+    pink_upperHSV = (180, 210, 255)
+    ranges["pink"] = contours_from_range(img, pink_lowerHSV, pink_upperHSV)
 
     #BGR HSV: Blue
-    blue_lowerHSV = (80, 140, 70)
-    blue_upperHSV = (110, 255, 210)
-    ranges["blue"] = centers_from_range(img, blue_lowerHSV, blue_upperHSV)
+    blue_lowerHSV = (80, 130, 55)
+    blue_upperHSV = (110, 255, 255)
+    ranges["blue"] = contours_from_range(img, blue_lowerHSV, blue_upperHSV)
 
     #BGR HSV: Green
     green_lowerHSV = (50, 100, 15)
-    green_upperHSV = (90, 255, 150)
-    ranges["green"] = centers_from_range(img, green_lowerHSV, green_upperHSV)
+    green_upperHSV = (82, 255, 150)
+    ranges["green"] = contours_from_range(img, green_lowerHSV, green_upperHSV)
 
     #BGR HSV: Yellow:
-    yellow_lowerHSV = (0, 150, 100)
-    yellow_upperHSV = (40, 255, 200)
-    ranges["yellow"] = centers_from_range(img, yellow_lowerHSV, yellow_upperHSV)
+    yellow_lowerHSV = (0, 120, 50)
+    yellow_upperHSV = (30, 255, 255)
+    ranges["yellow"] = contours_from_range(img, yellow_lowerHSV, yellow_upperHSV)
 
     for beacon in beacons:
         beacon.find_pos(ranges, pointcloud_data)
