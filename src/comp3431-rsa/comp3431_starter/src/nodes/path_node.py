@@ -30,17 +30,27 @@ class NavPath(object):
             print(len(self._path))
         show_path_in_rviz(marker_publisher, self._path)
 
+
+
 def show_path_in_rviz(marker_publisher, points):
+
     marker = Marker(
                 type=Marker.LINE_STRIP,
-                id=0,
+                id=10,
                 points=points,
-                header=Header(frame_id='odom'),
-                color=ColorRGBA(0.0, 1.0, 0.0, 0.8),
+                header=Header(frame_id='odom')
                 )
+    marker.pose.orientation.w = 1.0
+    marker.scale.x = 0.1
+    marker.color.b = 0.0
+    marker.color.g = 0.0
+    marker.color.r = 1.0
+    marker.color.a = 1.0
+    marker.action = marker.ADD
     marker_publisher.publish(marker)
 
 def main():
+
     rospy.init_node('my_node')
     wait_for_time()
     # ...setup stuff...

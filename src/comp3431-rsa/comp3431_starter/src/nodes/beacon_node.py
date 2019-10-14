@@ -60,7 +60,6 @@ class Beacon:
 
 def main():
     rospy.init_node("comp3431_starter_beacons")
-    beacons()
     # rospy.Subscriber("/color/image_raw", Float64MultiArray, pixel_rgb)
     # rospy.Subscriber("/depth/image_raw", Float64MultiArray, pixel_depth)
 
@@ -71,7 +70,6 @@ def main():
     rospy.spin()
 
 def start(data):
-    beacons()
     if data.data != "start": 
         return
     else:
@@ -104,7 +102,8 @@ def beacons():
         for beacon in beacons:
             print("publishing")
             publish_beacon(beacon_pub, beacon)
-            found_beacons.add(beacon.id)
+            if (beacon.all_positions):
+                found_beacons.add(beacon.id)
 
         if len(found_beacons) == len(beacons) and start == float("inf"):
             start = time.time()
