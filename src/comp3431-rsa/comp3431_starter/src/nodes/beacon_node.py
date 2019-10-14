@@ -34,6 +34,7 @@ class Beacon:
         x_sum = y_sum = z_sum = 0
         length = len(self.all_positions)
         if not length:
+            print("not length")
             return (0, 0, 0)
         for x, y, z in self.all_positions:
             x_sum += x
@@ -88,33 +89,25 @@ def beacons():
     start = time.time()
     beacons = [
         Beacon(0, "pink", "green"),
-        Beacon(1, "blue", "pink"),
-        Beacon(2, "pink", "yellow"),
-        Beacon(3, "yellow", "pink")
+        #Beacon(1, "blue", "pink"),
+        #Beacon(2, "pink", "yellow"),
+        #Beacon(3, "yellow", "pink")
     ]
 
-    cmd_pub.publish("start")  # start wall following
+    # cmd_pub.publish("start")  # start wall following
     found_beacons = set()
     start = float("inf")
     while time.time() - start < 5:
         pixel_data, pointcloud_data = getCameraData()
         detect_beacons(pixel_data, pointcloud_data, beacons)
-        for beacon in beacons:
-            print("publishing")
-            publish_beacon(beacon_pub, beacon)
+        for beacon in beacons:            
             if (beacon.all_positions):
                 found_beacons.add(beacon.id)
+                publish_beacon(beacon_pub, beacon)
 
         if len(found_beacons) == len(beacons) and start == float("inf"):
             start = time.time()
 
-
-
-
-    # beacons all found
-    for beacon in beacons:
-        print("publishing")
-        publish_beacon(beacon_pub, beacon)
 
 
 

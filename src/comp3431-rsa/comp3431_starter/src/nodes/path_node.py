@@ -19,7 +19,7 @@ class NavPath(object):
         self._path = []
 
     def callback(self, msg):
-        rospy.loginfo(msg)
+        #rospy.loginfo(msg)
         if not self._path:
             self._path.append(msg.pose.pose.position)
         else:
@@ -27,7 +27,7 @@ class NavPath(object):
             coords = (msg.pose.pose.position.x, msg.pose.pose.position.y)
             if np.linalg.norm((last.x-coords[0], last.y-coords[1])) > 0.1:
                 self._path.append(msg.pose.pose.position)
-            print(len(self._path))
+            #print(len(self._path))
         show_path_in_rviz(marker_publisher, self._path)
 
 
