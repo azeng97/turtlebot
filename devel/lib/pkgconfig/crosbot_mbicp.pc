@@ -1,8 +1,0 @@
-prefix=/home/azeng/turtle_ws/devel
-
-Name: crosbot_mbicp
-Description: Description of crosbot_mbicp
-Version: 0.0.0
-Cflags: 
-Libs: -L/home/azeng/turtle_ws/devel/lib 
-Requires: 
