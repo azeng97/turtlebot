@@ -30,7 +30,7 @@ class Beacon:
         self.all_positions.append(pos)
 
     def average_position(self):
-        
+
         x_sum = y_sum = z_sum = 0
         length = len(self.all_positions)
         if not length:
@@ -60,11 +60,12 @@ class Beacon:
 
 def main():
     rospy.init_node("comp3431_starter_beacons")
-    beacon_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=100)
+    
     # rospy.Subscriber("/color/image_raw", Float64MultiArray, pixel_rgb)
     # rospy.Subscriber("/depth/image_raw", Float64MultiArray, pixel_depth)
 
     # beacons = set(beacons)
+    rospy.Subscriber("cmd", String, start)
     
     print("beacon node waiting for start cmd")
     rospy.spin()
@@ -78,13 +79,12 @@ def start(data):
 
 def beacons():
 
-
+    beacon_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=100)
     cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
     origin_pub = rospy.Publisher(
         "move_base_simple/goal", PoseStamped, queue_size=1)
     rospy.sleep(1)
 
-    rospy.Subscriber("cmd", String, start)
     
     start = time.time()
     beacons = [
@@ -94,13 +94,21 @@ def beacons():
         Beacon(3, "yellow", "pink")
     ]
     
-    while beacons and time.time()-start < 40:
+    cmd_pub.publish("start")  # start wall following
+    found_beacons = set()
+    start = float("inf")
+    while time.time() - start < 5:
 
         pixel_data, pointcloud_data = getCameraData()
         detect_beacons(pixel_data, pointcloud_data, beacons)
         for beacon in beacons:
             print("publishing")
             publish_beacon(beacon_pub, beacon)
+            found_beacons.add(beacon.id)
+
+        if len(found_beacons) < len(beacons):
+            start = time.time()
+
 
 
 
@@ -299,7 +307,7 @@ def publish_beacon(beacon_pub, beacon):
         marker.color.a = 1.0
         print("plot 3")
 
-    marker.lifetime = rospy.Duration(100) #does not delete shape
+    marker.lifetime = rospy.Duration(1000) #does not delete shape
 
     beacon_pub.publish(marker)
 
