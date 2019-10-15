@@ -87,11 +87,13 @@ def beacons():
 
 
     start = time.time()
+
+    # TOP ON LEFT, BOTTOM ON RIGHT
     beacons = [
         Beacon(0, "pink", "green"),
-        #Beacon(1, "blue", "pink"),
-        #Beacon(2, "pink", "yellow"),
-        #Beacon(3, "yellow", "pink")
+        Beacon(1, "blue", "pink"),
+        Beacon(2, "pink", "yellow"),
+        Beacon(3, "yellow", "pink")
     ]
 
     # cmd_pub.publish("start")  # start wall following
