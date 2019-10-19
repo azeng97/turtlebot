@@ -10,14 +10,14 @@
 #include <comp3431_starter/wallFollow.hpp>
 
 #define BASE_FRAME  "base_link"
-#define MAX_SIDE_LIMIT      0.80
+#define MAX_SIDE_LIMIT      0.50
 #define MIN_APPROACH_DIST   0.30
-#define MAX_APPROACH_DIST   0.80
+#define MAX_APPROACH_DIST   0.50
 
 #define ROBOT_RADIUS        0.20
 
 #define MAX_SPEED       0.25
-#define MAX_TURN        0.5
+#define MAX_TURN        1.0
 
 #define CLIP_0_1(X)         ((X) < 0?0:(X)>1?1:(X))
 
@@ -101,7 +101,7 @@ void WallFollower::callbackScan(const sensor_msgs::LaserScanConstPtr& scan) {
         }
     }
 
-
+    std::cout << "side " << XMaxSide << "front" << XMinFront << std::endl;
     ROS_DEBUG("Detected walls %.2f left, %.2f front\n", XMaxSide, XMinFront);
     float turn, drive;
 
@@ -109,6 +109,7 @@ void WallFollower::callbackScan(const sensor_msgs::LaserScanConstPtr& scan) {
         // No hits beside robot, so turn that direction
         turn = 1;
         drive = 0;
+        std::cout << "no wall" << std::endl;
     } else if (XMinFront <= MIN_APPROACH_DIST) {
         // Blocked side and front, so turn other direction
         turn = -1;
@@ -129,10 +130,12 @@ void WallFollower::callbackScan(const sensor_msgs::LaserScanConstPtr& scan) {
         // turn2 = (limit - XF) / (limit - min) // Clipped to range (0..1)
         float turn2 = (MAX_APPROACH_DIST - XMinFront) / (MAX_APPROACH_DIST - MIN_APPROACH_DIST);
         turn2 = CLIP_0_1(turn2);
-
+        
         // turn = turn1 - turn2
         turn = turn1 - turn2;
-
+        std::cout << "turn1 " << turn1 << std::endl;
+        std::cout << "turn2 " << turn2 << std::endl;
+        std::cout << "driv1 " << drive1 << "drive2" << drive2 << std::endl;
         // drive = drive1 * drive2
         drive = drive1 * drive2;
     }

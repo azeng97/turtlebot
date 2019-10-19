@@ -41,7 +41,7 @@ def show_path_in_rviz(marker_publisher, points):
                 header=Header(frame_id='odom')
                 )
     marker.pose.orientation.w = 1.0
-    marker.scale.x = 0.1
+    marker.scale.x = 0.02
     marker.color.b = 0.0
     marker.color.g = 0.0
     marker.color.r = 1.0

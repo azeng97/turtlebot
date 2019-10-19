@@ -33,6 +33,8 @@ def main():
     cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
     rospy.sleep(10)
     cmd_pub.publish("start")
+    rospy.sleep(1)
+    cmd_pub.publish("start_beacon")
     print("Waiting for message")
     rospy.spin()
 

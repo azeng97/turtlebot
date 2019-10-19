@@ -52,9 +52,14 @@ class Beacon:
             return
         x, y = pos
         print("found beacon", self.id)
+        if (len(self.all_positions) < 5):
+            cmd_pub.publish("stop")
+            time.sleep(0.5)
+            cmd_pub.publish("start")
+        
         pos = pointcloud_data[x][y]
         if np.isnan(pos[0]):
-            return
+            return [0, 0, 0.3]
         pos = transform(pos)
         self.add_pos(pos)
 
@@ -71,14 +76,14 @@ def main():
     rospy.spin()
 
 def start(data):
-    if data.data != "start": 
+    if data.data != "start_beacon": 
         return
     else:
         print("starting beacon node")
         beacons()
 
 def beacons():
-
+    global cmd_pub
     beacon_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=100)
     cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
     origin_pub = rospy.Publisher(
@@ -272,9 +277,9 @@ def publish_beacon(beacon_pub, beacon):
     marker.pose.orientation.z = 0.0
     marker.pose.orientation.w = 1.0
     #size of shape, maybe modify
-    marker.scale.x = 0.25
-    marker.scale.y = 0.25
-    marker.scale.z = 0.25
+    marker.scale.x = 0.1
+    marker.scale.y = 0.1
+    marker.scale.z = 0.1
     #colour of shape, green atm, maybe modify based on beacon param
     if (marker.id == 0):
         marker.color.r = 0.0
@@ -289,21 +294,62 @@ def publish_beacon(beacon_pub, beacon):
         marker.color.a = 1.0
         print("plot 1")
     elif (marker.id == 2):
-        marker.color.r = 0.0
+        marker.color.r = 1.0
         marker.color.g = 1.0
-        marker.color.b = 1.0
+        marker.color.b = 0.5
         marker.color.a = 1.0
         print("plot 2")
     elif (marker.id == 3):
         marker.color.r = 1.0
         marker.color.g = 1.0
-        marker.color.b = 1.0
+        marker.color.b = 0.0
         marker.color.a = 1.0
         print("plot 3")
 
     marker.lifetime = rospy.Duration(1000) #does not delete shape
 
+
+
+    
+
     beacon_pub.publish(marker)
+
+
+    marker2 = Marker()
+    marker2.header.frame_id = "map" #not sure if correct frame ###############
+    marker2.header.stamp = rospy.get_rostime()
+    marker2.ns = "beacon_shapes"
+    marker2.id = beacon.id * 4 + 100
+    marker2.type = 9#cylinder shape
+    marker2.action = marker2.ADD #add/modify shape
+    #placement of shape
+
+    map_coord = beacon.average_position()
+
+    marker2.pose.position.x = map_coord[0]
+    marker2.pose.position.y = map_coord[1]
+    marker2.pose.position.z = map_coord[2]
+    # marker2.pose.position.x = map_coord[0]
+    # marker2.pose.position.y = map_coord[2]
+    # marker2.pose.position.z = map_coord[1]
+    print("marker2 location:", marker2.pose.position.x, marker2.pose.position.y, marker2.pose.position.z)
+    marker2.pose.orientation.x = 0.0
+    marker2.pose.orientation.y = 0.0
+    marker2.pose.orientation.z = 0.0
+    marker2.pose.orientation.w = 1.0
+    #size of shape, maybe modify
+    marker2.scale.x = 0.25
+    marker2.scale.y = 0.25
+    marker2.scale.z = 0.25
+    #colour of shape, green atm, maybe modify based on beacon param
+    marker2.text = beacon.top + "," + beacon.bottom
+    marker2.color.r = 0.0
+    marker2.color.g = 0.0
+    marker2.color.b = 0.0
+    marker2.color.a = 1.0
+    marker2.lifetime = rospy.Duration(1000) #does not delete shape
+    beacon_pub.publish(marker2)
+    
 
 
 def pointcloud2_to_array(cloud_msg):
