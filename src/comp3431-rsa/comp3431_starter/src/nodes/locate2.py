@@ -31,7 +31,7 @@ if __name__ == "__main__":
     def show(*images):
         cols = 3
         num_rows = (len(images) - 1) // cols + 1
-        plt.rcParams['figure.figsize'] = [20, 9]
+        plt.rcParams['figure.figsize'] = [20, 7]
         for i, im in enumerate(images):
             plt.subplot(num_rows, cols, i+1)
             plt.xticks([]), plt.yticks([])
@@ -52,7 +52,6 @@ if __name__ == "__main__":
         m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
         m[m>0] = 255
         greens.append(m)
-
     imgs = [remove_background(img, green) for img, green in zip(imgs, greens)]
 
     whites = []
@@ -60,11 +59,30 @@ if __name__ == "__main__":
         m = mask(i, (150, 150, 150), (255, 255, 255))
         m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        # m = cv2.dilate(m, kernel, iterations=11)
+        m = cv2.dilate(m, kernel, iterations=11)
         m[m>0] = 255
         whites.append(m)
 
-    for w, img in zip(whites, imgs):
-        show(morphology.skeletonize(w//255), w, img)
+    # for w, img in zip(whites, imgs):
+    #     show(morphology.skeletonize(w//255), w, img)
 
-    exit()
+    thins = [morphology.skeletonize(w//255) for w in whites]
+
+
+    for i, img in enumerate(thins):
+        found = False
+        for height in range(180):
+            if img[699-height, 397]:
+                print(f"found white at {height} in {i}")
+                if height < 15:
+                    print("start turning")
+                found = True
+                break
+        if not found:
+            continue
+        for width in range(100):
+            if img[699-height+5, 397+width]:
+                print("turn left")
+            if img[699-height+5, 397-width]:
+                print("turn right")
+        show(img)
