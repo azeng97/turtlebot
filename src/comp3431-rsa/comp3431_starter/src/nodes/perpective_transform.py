@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 # https://nikolasent.github.io/opencv/2017/05/07/Bird%27s-Eye-View-Transformation.html
 
 if __name__ == "__main__":
-    img = np.load("rect1.npy")
+    img = np.load("rect_left.npy")
 
     '''plt.imshow(img, cmap='gray')
     plt.show()
@@ -22,14 +22,14 @@ if __name__ == "__main__":
     plt.show()'''
 
     pts1 = np.float32([[0,480],[640,480],[0,295],[640,295]])
-    pts2 = np.float32([[290,480],[350,480],[0,0],[640,0]])
+    pts2 = np.float32([[360,700],[450,700],[0,0],[640,380]])
 
 #    pts1 = np.float32([[0,900],[800,900],[200,280],[600,280]])
 #    pts2 = np.float32([[800,1400],[1000,1400],[400,400],[1400,400]])
 
     M = cv2.getPerspectiveTransform(pts1,pts2)
 
-    dst = cv2.warpPerspective(img,M,(640,480))
+    dst = cv2.warpPerspective(img,M,(640,700))
 
     plt.subplot(121),plt.imshow(img),plt.title('Input')
     plt.subplot(122),plt.imshow(dst),plt.title('Output')
