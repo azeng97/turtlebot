@@ -1,7 +1,8 @@
 import numpy as np
 import cv2
 from skimage import morphology
-import perpective_transform    
+from simple_pid import PID
+import perpective_transform
 from matplotlib import pyplot as plt
 from glob import glob
 import subprocess
@@ -83,7 +84,10 @@ def show(*images):
 if __name__ == "__main__":
 
     rospy.init_node("drive")
-
+    CENTER = 397
+    TOP = 699
+    WIDTH = 47
+    pid = PID(1, 0.1, 0.05, setpoint=CENTER)
     while True:
         imgs = [getCameraData()]
 
@@ -112,7 +116,31 @@ if __name__ == "__main__":
         #     show(morphology.skeletonize(w//255), w, img)
 
         thins = [morphology.skeletonize(w//255) for w in whites]
-        
+
+        # new ###########################
+        for img, orig in zip(thins, imgs):
+            lefts, rights = [], []
+            for height in range(50):
+                for width in range(60):
+                    if img[TOP-height, CENTER-width]:
+                        lefts.append(width)
+                        break
+                for width in range(60):
+                    if img[TOP-height, CENTER+width]:
+                        rights.append(width)
+                        break
+            # rights = []
+            if lefts and rights:
+                mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
+            elif lefts:
+                mid = CENTER - int(np.mean(lefts)) + WIDTH
+            elif rights:
+                mid = CENTER + int(np.mean(rights)) - WIDTH
+            else:
+                mid = False
+            control = pid(mid)
+            print("turn by:", control)
+        # new ###########################
 
         for i, img in enumerate(thins):
             img = np.array(img, dtype=np.uint8)
@@ -146,11 +174,11 @@ if __name__ == "__main__":
                 print("relaly turn left")
             else:
                 print("really turn right")
-            
+
             #show(img)
 
-        
-    
+
+
 
 
     # imgs = [np.load(i) for i in glob("persp_trans*.npy")]
