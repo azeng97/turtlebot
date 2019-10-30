@@ -89,91 +89,72 @@ if __name__ == "__main__":
     WIDTH = 47
     pid = PID(1, 0.1, 0.05, setpoint=CENTER)
     while True:
-        imgs = [getCameraData()]
+        img = getCameraData()
 
-        green_lowerHSV = (30, 50, 15)
-        green_upperHSV = (50, 140, 255)
-        greens = []
-        for i in imgs:
-            i = cv2.cvtColor(i, cv2.COLOR_RGB2HSV)
-            m = mask(i, green_lowerHSV, green_upperHSV)
-            m = cv2.cvtColor(m, cv2.COLOR_HSV2RGB)
-            m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
-            m[m>0] = 255
-            greens.append(m)
-        imgs = [remove_background(img, green) for img, green in zip(imgs, greens)]
+        m = mask(img, (150, 150, 150), (255, 255, 255))
+        m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        m = cv2.dilate(m, kernel, iterations=20)
+        m[m>0] = 255
+        img = morphology.skeletonize(m//255)
 
-        whites = []
-        for i in imgs:
-            m = mask(i, (150, 150, 150), (255, 255, 255))
-            m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-            m = cv2.dilate(m, kernel, iterations=11)
-            m[m>0] = 255
-            whites.append(m)
-
-        # for w, img in zip(whites, imgs):
-        #     show(morphology.skeletonize(w//255), w, img)
-
-        thins = [morphology.skeletonize(w//255) for w in whites]
 
         # new ###########################
-        for img, orig in zip(thins, imgs):
-            lefts, rights = [], []
-            for height in range(50):
-                for width in range(60):
-                    if img[TOP-height, CENTER-width]:
-                        lefts.append(width)
-                        break
-                for width in range(60):
-                    if img[TOP-height, CENTER+width]:
-                        rights.append(width)
-                        break
-            # rights = []
-            if lefts and rights:
-                mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
-            elif lefts:
-                mid = CENTER - int(np.mean(lefts)) + WIDTH
-            elif rights:
-                mid = CENTER + int(np.mean(rights)) - WIDTH
-            else:
-                mid = False
-            control = pid(mid)
-            print("turn by:", control)
-        # new ###########################
-
-        for i, img in enumerate(thins):
-            img = np.array(img, dtype=np.uint8)
-            found = False
-            for height in range(180):
-                if img[699-height, 410]:
-                    print("found white at ", height)
-                    if height < 15:
-                        print("start turning")
-                    found = True
+        lefts, rights = [], []
+        for height in range(50):
+            for width in range(60):
+                if img[TOP-height, CENTER-width]:
+                    lefts.append(width)
                     break
-            if not found:
-                continue
-            leftvote = 0
-            rightvote = 0
-            for asd in range(10):
-                for width in range(100):
-                    if 700 - height + asd < 700:
-                        if img[700 - height + asd, 410+width]:
-                            leftvote += 1
-                            print("turn left", 694 - height + asd, 410+width)
+            for width in range(60):
+                if img[TOP-height, CENTER+width]:
+                    rights.append(width)
+                    break
+        # rights = []
+        if lefts and rights:
+            mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
+        elif lefts:
+            mid = CENTER - int(np.mean(lefts)) + WIDTH
+        elif rights:
+            mid = CENTER + int(np.mean(rights)) - WIDTH
+        else:
+            mid = False
+        control = pid(mid)
+        print("turn by:", control)
+        # new ###########################
 
-                            break
-                        if img[700 - height + asd, 410-width]:
-                            rightvote += 1
-                            print("turn right", 694 - height + asd, 410-width)
+        # for i, img in enumerate(thins):
+        #     img = np.array(img, dtype=np.uint8)
+        #     found = False
+        #     for height in range(180):
+        #         if img[699-height, 410]:
+        #             print("found white at ", height)
+        #             if height < 15:
+        #                 print("start turning")
+        #             found = True
+        #             break
+        #     if not found:
+        #         continue
+        #     leftvote = 0
+        #     rightvote = 0
+        #     for asd in range(10):
+        #         for width in range(100):
+        #             if 700 - height + asd < 700:
+        #                 if img[700 - height + asd, 410+width]:
+        #                     leftvote += 1
+        #                     print("turn left", 694 - height + asd, 410+width)
 
-                            break
+        #                     break
+        #                 if img[700 - height + asd, 410-width]:
+        #                     rightvote += 1
+        #                     print("turn right", 694 - height + asd, 410-width)
 
-            if leftvote > rightvote:
-                print("relaly turn left")
-            else:
-                print("really turn right")
+        #                     break
+
+        #     if leftvote > rightvote:
+        #         print("relaly turn left")
+        #     else:
+        #         print("really turn right")
 
             #show(img)
 
