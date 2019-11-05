@@ -100,6 +100,7 @@ if __name__ == "__main__":
     while True:
         img = getCameraData()
 
+
         m = mask(img, (150, 150, 150), (255, 255, 255))
         m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
@@ -107,8 +108,7 @@ if __name__ == "__main__":
         m[m>0] = 255
         img = morphology.skeletonize(m//255)
 
-
-        # # # new ###########################
+        # new ###########################
         lefts, rights = [], []
         for height in range(50):
             for width in range(60):
@@ -119,26 +119,21 @@ if __name__ == "__main__":
                 if img[TOP-height, CENTER+width]:
                     rights.append(width)
                     break
-        # rights = []
+        rights = []
         if lefts and rights:
-            mid = (int(np.mean(lefts)) + int(np.mean(rights)))//2
-            print("both")
+            mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
         elif lefts:
-            mid = int(np.mean(lefts)) + WIDTH
-            print("left")
+            mid = CENTER - int(np.mean(lefts)) + WIDTH
         elif rights:
-            mid = int(np.mean(rights)) - WIDTH
-            print("right")
+            mid = CENTER + int(np.mean(rights)) - WIDTH
         else:
             mid = False
-        #control = pid(mid)/100
-        print("mid", mid)
-        control = mid/1000.0
-        img[670:690, CENTER + mid] = True
-
-        err = mid
-        print("error ", err)
-        print("control ", control)
+        control = mid - CENTER
+        # control = pid(control)/100.0
+        control = control/50.0
+        print("at:", mid)
+        print("control:", control)
+        img[670:690, mid] = True
         twist.linear.x = 0.05
         twist.linear.y = twist.linear.z = 0
         twist.angular.x = twist.angular.y = 0
@@ -158,7 +153,7 @@ if __name__ == "__main__":
         msg = bridge.cv2_to_imgmsg(img, "mono8")
         #print(msg)
         image_pub.publish(msg)
-        
+
         # # new ###########################
 
         # twist.linear.x = 0.1

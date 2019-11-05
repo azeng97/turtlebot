@@ -10,22 +10,6 @@ def mask(img, lo, hi):
     return cv2.bitwise_and(img, img, mask=mask)
 
 
-def remove_background(img, green):
-    blur = cv2.medianBlur(green, 5)
-    blur[blur > 0] = 255
-    contours = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[1]
-    contours = [cv2.convexHull(c) for c in contours if cv2.contourArea(c) > 5000]
-    mask = np.zeros(img.shape[:2], dtype="uint8")
-    for contour in contours:
-        cv2.drawContours(mask, [contour], -1, 255, -1)
-    higest = 300
-    for c in contours:
-        x, y, w, h = cv2.boundingRect(c)
-        higest = min(y, higest)
-
-    img[:higest, :] = 0
-    return img
-
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
     from glob import glob
@@ -41,19 +25,48 @@ if __name__ == "__main__":
 
 
     imgs = [np.load(i) for i in glob("persp_trans*.npy")]
-    img = imgs[0]
+    img_start = imgs[3]
+    for img_start in imgs:
 
-    green_lowerHSV = (30, 50, 15)
-    green_upperHSV = (50, 140, 255)
-    greens = []
-    for i in imgs:
-        i = cv2.cvtColor(i, cv2.COLOR_RGB2HSV)
-        m = mask(i, green_lowerHSV, green_upperHSV)
-        m = cv2.cvtColor(m, cv2.COLOR_HSV2RGB)
+        CENTER = 397
+        TOP = 699
+        WIDTH = 47
+        m = mask(img_start, (150, 150, 150), (255, 255, 255))
         m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        m = cv2.dilate(m, kernel, iterations=10)
         m[m>0] = 255
-        greens.append(m)
-    imgs = [remove_background(img, green) for img, green in zip(imgs, greens)]
+        img = morphology.skeletonize(m//255)
+
+
+        # # # new ###########################
+        lefts, rights = [], []
+        for height in range(50):
+            for width in range(60):
+                if img[TOP-height, CENTER-width]:
+                    lefts.append(width)
+                    break
+            for width in range(60):
+                if img[TOP-height, CENTER+width]:
+                    rights.append(width)
+                    break
+        rights = []
+        if lefts and rights:
+            mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
+        elif lefts:
+            mid = CENTER - int(np.mean(lefts)) + WIDTH
+        elif rights:
+            mid = CENTER + int(np.mean(rights)) - WIDTH
+        else:
+            mid = False
+        control = mid - CENTER
+        # control = pid(control)/100.0
+        control = control/50.0
+        print("at:", mid)
+        print("control:", control)
+        img[670:690, mid] = True
+        show(img_start, m, img)
+    exit()
 
     whites = []
     for i in imgs:
