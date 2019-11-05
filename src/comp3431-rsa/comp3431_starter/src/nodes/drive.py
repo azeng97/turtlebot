@@ -83,8 +83,9 @@ def show(*images):
         plt.imshow(im, cmap='gray')
     plt.show()
 
-if __name__ == "__main__":
 
+
+if __name__ == "__main__":
     cmd_vel_pub = rospy.Publisher('cmd_vel',
                         Twist, queue_size=1)
 
@@ -102,92 +103,109 @@ if __name__ == "__main__":
         m = mask(img, (150, 150, 150), (255, 255, 255))
         m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        m = cv2.dilate(m, kernel, iterations=20)
+        m = cv2.dilate(m, kernel, iterations=10)
         m[m>0] = 255
         img = morphology.skeletonize(m//255)
 
 
-        # # new ###########################
-        # lefts, rights = [], []
-        # for height in range(50):
-        #     for width in range(60):
-        #         if img[TOP-height, CENTER-width]:
-        #             lefts.append(width)
-        #             break
-        #     for width in range(60):
-        #         if img[TOP-height, CENTER+width]:
-        #             rights.append(width)
-        #             break
-        # # rights = []
-        # if lefts and rights:
-        #     mid = (int(np.mean(lefts)) + int(np.mean(rights)))//2
-        # elif lefts:
-        #     mid = int(np.mean(lefts)) + WIDTH
-        # elif rights:
-        #     mid = int(np.mean(rights)) - WIDTH
-        # else:
-        #     mid = False
-        # control = pid(mid)//100
-        # # control = mid//50
+        # # # new ###########################
+        lefts, rights = [], []
+        for height in range(50):
+            for width in range(60):
+                if img[TOP-height, CENTER-width]:
+                    lefts.append(width)
+                    break
+            for width in range(60):
+                if img[TOP-height, CENTER+width]:
+                    rights.append(width)
+                    break
+        # rights = []
+        if lefts and rights:
+            mid = (int(np.mean(lefts)) + int(np.mean(rights)))//2
+            print("both")
+        elif lefts:
+            mid = int(np.mean(lefts)) + WIDTH
+            print("left")
+        elif rights:
+            mid = int(np.mean(rights)) - WIDTH
+            print("right")
+        else:
+            mid = False
+        #control = pid(mid)/100
+        print("mid", mid)
+        control = mid/1000.0
+        img[670:690, CENTER + mid] = True
 
-        # err = mid
-        # print("error ", err)
-        # print("control ", control)
-        # twist.linear.x = 0.05
-        # twist.linear.y = twist.linear.z = 0
-        # twist.angular.x = twist.angular.y = 0
-        # twist.angular.z = control#-float(err) / 100
-
-        # cmd_vel_pub.publish(twist)
-
-        # print("turn by:", control)
-        # # new ###########################
-
-        twist.linear.x = 0.1
-        twist.linear.y = twist.linear.z = 0
-        twist.angular.x = twist.angular.y = 0
-        twist.angular.z = 0
-        img = np.array(img, dtype=np.uint8)
-        found = False
-        turn = False
-        for height in range(180):
-            if img[699-height, 410]:
-                print("found white at ", height)
-                if height < 15:
-                    print("start turning")
-                    turn = True
-                found = True
-                break
-        if not found:
-            cmd_vel_pub.publish(twist)
-            continue
-        leftvote = 0
-        rightvote = 0
-        for asd in range(2, 20, 4):
-            for width in range(100):
-                if 700 - height + asd < 700:
-                    if img[700 - height + asd, 410+width]:
-                        leftvote += 1
-                        print("turn left", 694 - height + asd, 410+width)
-
-                        break
-                    if img[700 - height + asd, 410-width]:
-                        rightvote += 1
-                        print("turn right", 694 - height + asd, 410-width)
-
-                        break
+        err = mid
+        print("error ", err)
+        print("control ", control)
         twist.linear.x = 0.05
         twist.linear.y = twist.linear.z = 0
         twist.angular.x = twist.angular.y = 0
-        twist.angular.z = 0
-        if leftvote > rightvote and turn:
-            twist.angular.z = 0.5
-            print("relaly turn left")
-        elif turn:
-            twist.angular.z = -0.5
-            print("really turn right")
+        twist.angular.z = control#-float(err) / 100
 
-        cmd_vel_pub.publish(twist)
+        # cmd_vel_pub.publish(twist)
+
+        print("turn by:", control)
+        bridge = CvBridge()
+        img = img.astype("uint8")
+        # # img[img == True] = 255
+        img *= 255
+        # #print(img[40])
+        # cv_image = img
+        #print(img)
+        image_pub = rospy.Publisher("image_topic_2", Image)
+        msg = bridge.cv2_to_imgmsg(img, "mono8")
+        #print(msg)
+        image_pub.publish(msg)
+        
+        # # new ###########################
+
+        # twist.linear.x = 0.1
+        # twist.linear.y = twist.linear.z = 0
+        # twist.angular.x = twist.angular.y = 0
+        # twist.angular.z = 0
+        # img = np.array(img, dtype=np.uint8)
+        # found = False
+        # turn = False
+        # for height in range(180):
+        #     if img[699-height, 410]:
+        #         print("found white at ", height)
+        #         if height < 15:
+        #             print("start turning")
+        #             turn = True
+        #         found = True
+        #         break
+        # if not found:
+        #     cmd_vel_pub.publish(twist)
+        #     continue
+        # leftvote = 0
+        # rightvote = 0
+        # for asd in range(2, 20, 4):
+        #     for width in range(100):
+        #         if 700 - height + asd < 700:
+        #             if img[700 - height + asd, 410+width]:
+        #                 leftvote += 1
+        #                 print("turn left", 694 - height + asd, 410+width)
+
+        #                 break
+        #             if img[700 - height + asd, 410-width]:
+        #                 rightvote += 1
+        #                 print("turn right", 694 - height + asd, 410-width)
+
+        #                 break
+        # twist.linear.x = 0.05
+        # twist.linear.y = twist.linear.z = 0
+        # twist.angular.x = twist.angular.y = 0
+        # twist.angular.z = 0
+        # if leftvote > rightvote and turn:
+        #     twist.angular.z = 0.5
+        #     print("relaly turn left")
+        # elif turn:
+        #     twist.angular.z = -0.5
+        #     print("really turn right")
+
+        # cmd_vel_pub.publish(twist)
 
         #show(img)
 
