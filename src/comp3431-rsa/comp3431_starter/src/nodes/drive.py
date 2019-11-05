@@ -95,7 +95,7 @@ if __name__ == "__main__":
     TOP = 699
     WIDTH = 47
     pid = PID(1, 0.1, 0.05, setpoint=0, proportional_on_measurement =True)
-    pid.output_limits = (-1, 1)
+    pid.output_limits = (-100, 100)
     while True:
         img = getCameraData()
 
@@ -127,19 +127,22 @@ if __name__ == "__main__":
         #     mid = int(np.mean(rights)) - WIDTH
         # else:
         #     mid = False
-        # control = pid(mid/10)
+        # control = pid(mid)//100
+        # # control = mid//50
 
         # err = mid
         # print("error ", err)
+        # print("control ", control)
         # twist.linear.x = 0.05
         # twist.linear.y = twist.linear.z = 0
         # twist.angular.x = twist.angular.y = 0
         # twist.angular.z = control#-float(err) / 100
-        
+
         # cmd_vel_pub.publish(twist)
 
         # print("turn by:", control)
-        # new ###########################
+        # # new ###########################
+
         twist.linear.x = 0.1
         twist.linear.y = twist.linear.z = 0
         twist.angular.x = twist.angular.y = 0
@@ -185,7 +188,7 @@ if __name__ == "__main__":
             print("really turn right")
 
         cmd_vel_pub.publish(twist)
-        
+
         #show(img)
 
 
