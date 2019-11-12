@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from skimage import morphology
+#from skimage import morphology
 #from simple_pid import PID
 import perpective_transform
 from matplotlib import pyplot as plt
@@ -71,7 +71,11 @@ def callback(pixel_data):
             if img[TOP-height, CENTER+width]:
                 rights.append(width)
                 break
-    rights = []
+    if len(lefts) < 15:
+        rights = []
+
+    if len(rights) < 15:
+        rights = []
     if lefts and rights:
         mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
     elif lefts:
