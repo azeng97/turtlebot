@@ -28,7 +28,7 @@ from time import time
 count = 0
 start = 0
 def callback(pixel_data):
-    
+
     CENTER = 397
     TOP = 699
     WIDTH = 38
@@ -71,11 +71,35 @@ def callback(pixel_data):
             if img[TOP-height, CENTER+width]:
                 rights.append(width)
                 break
-    if len(lefts) < 15:
-        rights = []
 
-    if len(rights) < 15:
-        rights = []
+    # hard coded turn now
+    if img[TOP, CENTER]:
+        left_count = 0
+        right_count = 0
+        for height in range(20):
+            for width in range(50):
+                if img[TOP-height, CENTER-width]:
+                    left_count += 1
+                if img[TOP-height, CENTER+width]:
+                    right_count += 1
+        if left_count / right_count > 5:
+            print("TURN LEFT NOW!!!!")
+            twist.angular.z = -0.5
+        if right_count / left_count > 5:
+            print("TURN RIGHT NOW!!!!")
+            twist.angular.z = 0.5
+
+        twist.linear.y = twist.linear.z = 0
+        twist.angular.x = twist.angular.y = 0
+
+        cmd_vel_pub.publish(twist)
+        return
+
+    # if len(lefts) < 15:
+    #     rights = []
+
+    # if len(rights) < 15:
+    #     rights = []
     if lefts and rights:
         mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
     elif lefts:
@@ -123,12 +147,12 @@ def getCameraData(pixel_data):
     # pixel_data = None
     # while pixel_data is None:
     #     try:
-    #         pixel_data = 
+    #         pixel_data =
     #     except Exception as e:
     #         print(e)
     #         pass
     print("got camera data")
-    
+
     return dst
 
 
@@ -173,7 +197,7 @@ if __name__ == "__main__":
     twist = Twist()
     rospy.Subscriber("camera/rgb/image_rect_color", Image, callback)
     rospy.init_node("drive")
-    
+
     # pid = PID(1, 0.1, 0.05, setpoint=0, proportional_on_measurement =True)
     # pid.output_limits = (-100, 100)
     rospy.spin()

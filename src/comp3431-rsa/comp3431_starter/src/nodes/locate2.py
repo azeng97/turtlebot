@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from skimage import morphology
+# from skimage import morphology
 from simple_pid import PID
 
 
@@ -24,110 +24,75 @@ if __name__ == "__main__":
         plt.show()
 
 
-    imgs = [np.load(i) for i in glob("persp_trans*.npy")]
-    img_start = imgs[3]
+    imgs = [np.load(i) for i in glob("turn*.npy")]
+    # img_start = imgs[3]
     for img_start in imgs:
 
         CENTER = 397
         TOP = 699
-        WIDTH = 47
+        WIDTH = 38
         m = mask(img_start, (150, 150, 150), (255, 255, 255))
         m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        m = cv2.dilate(m, kernel, iterations=10)
+        m = cv2.dilate(m, kernel, iterations=5)
         m[m>0] = 255
-        img = morphology.skeletonize(m//255)
+        img = m
+
+        # img = np.flip(img, 1)
+        # CENTER = 240
+
+        if img[TOP, CENTER]:
+            left_count = 0
+            right_count = 0
+            for height in range(20):
+                for width in range(50):
+                    if img[TOP-height, CENTER-width]:
+                        left_count += 1
+                    if img[TOP-height, CENTER+width]:
+                        right_count += 1
+            if left_count / right_count > 5:
+                print("TURN LEFT NOW!!!!")
+            if right_count / left_count > 5:
+                print("TURN RIGHT NOW!!!!")
+
 
 
         # # # new ###########################
         lefts, rights = [], []
         for height in range(50):
-            for width in range(60):
+        # for height in range(80, 80+50):
+            for width in range(100):
                 if img[TOP-height, CENTER-width]:
                     lefts.append(width)
                     break
-            for width in range(60):
+            for width in range(100):
                 if img[TOP-height, CENTER+width]:
                     rights.append(width)
                     break
-        rights = []
+        # rights = []
         if lefts and rights:
+            print("both")
+            print(len(lefts), len(rights))
             mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
         elif lefts:
+            print("lefts")
             mid = CENTER - int(np.mean(lefts)) + WIDTH
         elif rights:
+            print("rights")
             mid = CENTER + int(np.mean(rights)) - WIDTH
         else:
             mid = False
         control = mid - CENTER
         # control = pid(control)/100.0
-        control = control/50.0
+        control = control/100.0
         print("at:", mid)
         print("control:", control)
-        img[670:690, mid] = True
-        show(img_start, m, img)
-    exit()
-
-    whites = []
-    for i in imgs:
-        m = mask(i, (150, 150, 150), (255, 255, 255))
-        m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        m = cv2.dilate(m, kernel, iterations=20)
-        m[m>0] = 255
-        whites.append(m)
-
-    # for w, img in zip(whites, imgs):
-    #     show(morphology.skeletonize(w//255), w, img)
-
-    thins = [morphology.skeletonize(w//255) for w in whites]
-
-    CENTER = 397
-    TOP = 699
-    WIDTH = 47
-    pid = PID(1, 0.1, 0.05, setpoint=CENTER)
-    for img, orig in zip(thins, imgs):
-        lefts, rights = [], []
-        for height in range(50):
-            for width in range(60):
-                if img[TOP-height, CENTER-width]:
-                    lefts.append(width)
-                    break
-            for width in range(60):
-                if img[TOP-height, CENTER+width]:
-                    rights.append(width)
-                    break
-
-        # rights = []
-        if lefts and rights:
-            mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
-        elif lefts:
-            mid = CENTER - int(np.mean(lefts)) + WIDTH
-        elif rights:
-            mid = CENTER + int(np.mean(rights)) - WIDTH
+        if control > 0:
+            print("turn left")
         else:
-            mid = False
-
-        control = pid(mid)
-        print(CENTER-mid, control)
-        orig = cv2.circle(orig, (mid, TOP-30), 5, (255, 0, 0), -1)
-
-        show(orig, img)
-
-    # for i, img in enumerate(thins):
-    #     found = False
-    #     for height in range(180):
-    #         if img[699-height, 397]:
-    #             print(f"found white at {height} in {i}")
-    #             if height < 15:
-    #                 print("start turning")
-    #             found = True
-    #             break
-    #     if not found:
-    #         continue
-    #     for width in range(100):
-    #         if img[699-height+5, 397+width]:
-    #             print("turn left")
-    #         if img[699-height+5, 397-width]:
-    #             print("turn right")
-    #     show(img)
+            print("turn right")
+        # img[699-50-80:699-80, mid] = 255
+        # img[699-50-80:699-80, CENTER] = 255
+        img[699-50:699, mid] = 255
+        img[699-50:699, CENTER] = 255
+        show(img_start, img)
