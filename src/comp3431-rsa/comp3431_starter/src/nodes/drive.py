@@ -70,7 +70,7 @@ def callback(pixel_data):
     global rightvotes
     global leftvotes
     global forcedTurn
-    CENTER = 393
+    CENTER = 397
     TOP = 699
     #WIDTH = 38
     WIDTH = 38
@@ -106,15 +106,16 @@ def callback(pixel_data):
 
     lefts, rights = [], []
     forcedLefts, forcedRights = [], []
-    forcedHitHeight = 0
+    savedHitHeight = 0
     turnNow = False
     twist.linear.x = 0.05
     twist.linear.y = twist.linear.z = 0
     twist.angular.x = twist.angular.y = 0
+    stabilise = False
     
     for hitHeight in range(TOP):
         foundHit = False
-        for scanHitHeight in range(20):
+        for scanHitHeight in range(15):
             if ((TOP - hitHeight - scanHitHeight >= 0 and img[TOP - hitHeight - scanHitHeight, CENTER])
                     or (TOP - hitHeight + scanHitHeight < 700 and img[TOP - hitHeight + scanHitHeight, CENTER])):
                 foundHit = True
@@ -141,7 +142,6 @@ def callback(pixel_data):
 
 
         if time_after_last_forced_turn > 50 and foundHit and hitHeight > 80 and hitHeight < 200:
-            forcedHitHeight = hitHeight
             for scanForcedTurn in range(80):
                 for width in range(75):
                     if img[TOP - hitHeight + scanForcedTurn, CENTER - width]:
@@ -152,21 +152,24 @@ def callback(pixel_data):
                         forcedRights.append(width)
                         break
         if foundHit:
+            savedHitHeight = hitHeight
+            if hitHeight > 100:
+                stabilise = True
             if hitHeight < 50:
                 twist.linear.x = 0.05
             elif hitHeight < 100:
                 twist.linear.x = 0.1
             else:
                 twist.linear.x = 0.2
-            if hitHeight < 10:
+            if hitHeight < 1:
                 turnNow = True
             break
 
     if time_after_last_forced_turn > 50:
-        if forcedHitHeight > 80 and len(forcedRights) < 60:
+        if savedHitHeight > 80 and len(forcedRights) < 60:
             next_turn = RIGHT
             forcedTurn = True
-        elif forcedHitHeight > 80 and len(forcedLefts) < 60:
+        elif savedHitHeight > 80 and len(forcedLefts) < 60:
             next_turn = LEFT
             forcedTurn = True
         elif next_turn != NONE:
@@ -183,11 +186,13 @@ def callback(pixel_data):
     avgLefts = np.mean(lefts)
     avgRights = np.mean(rights)
     print(avgLefts, " and ", avgRights)
+    displayHeightLines = False
     if (lefts and rights):
         if (avgLefts < avgRights):
             print("left higher than right, turn left")
         else:
             print("left lower than right, turn right")
+        displayHeightLines = True
 
         
     
@@ -224,14 +229,20 @@ def callback(pixel_data):
             
     else:
         lefts, rights = [], []
-        for height in range(50):
+        for height in range(min(savedHitHeight, 100)):
             for width in range(60):
                 if img[TOP-height, CENTER-width]:
+                    if width == 0: # the line is too close to the middle to classify as left
+                        break
                     lefts.append(width)
+                    print("left", width)
                     break
             for width in range(60):
                 if img[TOP-height, CENTER+width]:
+                    if width == 0:
+                        break
                     rights.append(width)
+                    print("right", width)
                     break
         if lefts and rights:
             mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
@@ -241,18 +252,21 @@ def callback(pixel_data):
             mid = CENTER + int(np.mean(rights)) - WIDTH
         else:
             twist.angular.z = 0
+            print("control none")
             cmd_vel_pub.publish(twist)
             return
         control = mid - CENTER
-        img[500:690, mid] = 255
+        img[600:690, mid] = 255
+        img[500:690, CENTER] = 255
         
         # control = pid(control)/100.0
         control = control/100.0
         twist.angular.z = -control
         print("control:", control)
 
-    img[avgLefts, CENTER-50:CENTER] = 255
-    img[avgRights, CENTER:CENTER+50] = 255
+    if displayHeightLines:
+        img[avgLefts, CENTER-50:CENTER] = 255
+        img[avgRights, CENTER:CENTER+50] = 255
     cmd_vel_pub.publish(twist)
 
     time_after_last_forced_turn += 1
