@@ -13,7 +13,8 @@ def mask(img, lo, hi):
     return cv2.bitwise_and(img, img, mask=mask)
 
 
-def show(*images, cols=3):
+def show(*images):
+    cols = 3
     if len(images) == 1 and type(images[0]) == list:
         images = images[0]
     cols = min(cols, len(images))
