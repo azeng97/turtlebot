@@ -13,7 +13,8 @@ def mask(img, lo, hi):
     return cv2.bitwise_and(img, img, mask=mask)
 
 
-def show(*images, cols=3):
+def show(*images):
+    cols = 3
     if len(images) == 1 and type(images[0]) == list:
         images = images[0]
     cols = min(cols, len(images))
@@ -33,18 +34,29 @@ def valid_rect(contour):
     if cv2.contourArea(contour)/cv2.contourArea(cv2.convexHull(contour)) < 0.8:
         return False
     (x,y), (width, height), angle = cv2.minAreaRect(contour)
+    if width < height:
+        width, height = height, width
+        angle += 90
+    if angle == 0 or angle == 180:
+        return False
     ratio = width/height
     if 0.7 < ratio < 1.3:
         return False
     return True
 
+def valid_dash(contour):
+    (x,y), (width, height), angle = cv2.minAreaRect(contour)
+    if max(width, height) < 50:
+        return True
+    return False
+
 def get_rect_contours(img):
     contours = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[1]
     return [c for c in contours if valid_rect(c)]
 
-def get_not_rect_contours(img):
+def get_thinned_rect_contours(img):
     contours = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[1]
-    return [c for c in contours if valid_rect(c)]
+    return [c for c in contours if valid_dash(c)]
 
 def thin(img):
     size = np.size(img)
@@ -64,7 +76,21 @@ def thin(img):
         zeros = size - cv2.countNonZero(img)
         if zeros==size:
             done = True
-    return skel
+
+    return cv2.dilate(skel,element)
+
+
+def long_thin(img):
+    img = thin(img)
+    contours = get_thinned_rect_contours(img)
+    mask = np.zeros(img.shape[:2], dtype="uint8")
+    for contour in contours:
+        (x,y),radius = cv2.minEnclosingCircle(contour)
+        center = (int(x),int(y))
+        radius = int(radius) + 3
+        cv2.circle(img,center,radius,(0,0,0),-1)
+    return img
+
 
 def contours_as_img(img):
     img = cv2.medianBlur(img, 3)
@@ -124,10 +150,12 @@ def get_processed_img(img):
     # m = cv2.dilate(m, kernel, iterations=5)
     m = cv2.erode(m, kernel, iterations=2)
     m[m>0] = 255
-    return cv2.bitwise_or(thin(m), flatern_rectangles(m))
+    # show(long_thin(m), thin(m), cv2.bitwise_or(long_thin(m), flatern_rectangles(m)))
+    return cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
 
 if __name__ == "__main__":
     for img in [np.load(i) for i in glob("rect*.npy")]:
+        # get_processed_img(img)
         show(get_processed_img(img))
     exit()
 
@@ -141,7 +169,7 @@ if __name__ == "__main__":
         CENTER = 397
         TOP = 699
         TOP = 625
-        WIDTH = 38
+        WIDTH = 47
         m = mask(img_start, (150, 150, 150), (255, 255, 255))
         m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
@@ -150,8 +178,6 @@ if __name__ == "__main__":
         m[m>0] = 255
         img = m
 
-        show(img, thin(img), cv2.bitwise_or(thin(img), flatern_rectangles(img)))
-        continue
 
         # img = np.flip(img, 1)
         # CENTER = 240
@@ -184,6 +210,7 @@ if __name__ == "__main__":
                 if img[TOP-height, CENTER+width]:
                     rights.append(width)
                     break
+
         # rights = []
         if lefts and rights:
             print("both")
@@ -208,8 +235,9 @@ if __name__ == "__main__":
             print("turn right")
         # img[699-50-80:699-80, mid] = 255
         # img[699-50-80:699-80, CENTER] = 255
-        img[699-50:699, mid] = 255
-        img[699-50:699, CENTER] = 255
+        # img[699-50:699, mid] = 255
+        # img[699-50:699, CENTER] = 255
         # skel2 = morphology.skeletonize(img.astype(np.bool))
-        show(img, contours_as_img(img), flatern_rectangles(img))
+        # show(m, cv2.bitwise_or(long_thin(m), flatern_rectangles(m)), long_thin(m))
+        show(m, thin(m), long_thin(m))
         # break
