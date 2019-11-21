@@ -37,10 +37,10 @@ def valid_rect(contour):
     if width < height:
         width, height = height, width
         angle += 90
-    if angle == 0 or angle == 180:
+    if (angle == 0 or angle == 180) and y > 650:
         return False
     ratio = width/height
-    if 0.7 < ratio < 1.3:
+    if 0.9 < ratio < 1.1:
         return False
     return True
 
@@ -142,6 +142,48 @@ def green_light(ranges):
 
 #     print(stop, go)
 
+CENTER = 397
+TOP = 699
+WIDTH = 47
+
+def detectStopLine(img):
+    for y in range(150):
+        # Check if there is a line in front, and then if lines on either side coming
+        # back towards the robot (which are roughly the same distance apart)
+        if img[TOP-y][CENTER]: # Line directly in front
+            lefts = []
+            rights = []
+            for n in range(1, 10):
+                left = right = 0
+                if 5*n - y > 0:
+                    break
+                for x in range(60):
+                    if img[TOP-y + 5*n][CENTER-x]:
+                        left = CENTER-x
+                        break
+                if (left == 0 or right == 0) and TOP-y + 5*n > 665:
+                    break
+                for x in range(60):
+                    if img[TOP-y + 5*n][CENTER+x]:
+                        right = CENTER+x
+                        break
+                if left == 0 or right == 0:
+                    return False
+                lefts.append(left)
+                rights.append(right)
+            if len(lefts) == 0:
+                # print("too short")
+                return False
+            if abs(WIDTH*2-(np.mean(rights)-np.mean(lefts))) > 15:
+                # print("not in center")
+                return False
+            if np.std(np.array(lefts) - np.array(rights)) > 9:
+                # print("lines aren't parallel")
+                return False
+            return True
+    return False
+
+
 def get_processed_img(img):
     img = persp_trans(img)
     m = mask(img, (150, 150, 150), (255, 255, 255))
@@ -150,13 +192,15 @@ def get_processed_img(img):
     # m = cv2.dilate(m, kernel, iterations=5)
     m = cv2.erode(m, kernel, iterations=2)
     m[m>0] = 255
-    # show(long_thin(m), thin(m), cv2.bitwise_or(long_thin(m), flatern_rectangles(m)))
+    final = cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
+    print(detectStopLine(final))
+    show(img, m, cv2.bitwise_or(long_thin(m), flatern_rectangles(m)))
     return cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
 
 if __name__ == "__main__":
-    for img in [np.load(i) for i in glob("rect*.npy")]:
-        # get_processed_img(img)
-        show(get_processed_img(img))
+    for img in [np.load(i) for i in glob("*stop*.npy")]:
+        get_processed_img(img)
+        # show(get_processed_img(img))
     exit()
 
 
@@ -168,7 +212,7 @@ if __name__ == "__main__":
         # img_start[625:] = 0
         CENTER = 397
         TOP = 699
-        TOP = 625
+        # TOP = 625
         WIDTH = 47
         m = mask(img_start, (150, 150, 150), (255, 255, 255))
         m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
