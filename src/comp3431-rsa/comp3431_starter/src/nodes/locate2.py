@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from skimage import morphology
+# from skimage import morphology
 # from simple_pid import PID
 from matplotlib import pyplot as plt
 from glob import glob
@@ -26,13 +26,16 @@ def show(*images, cols=3):
     plt.show()
 
 def valid_contour(contour):
-    if cv2.contourArea(contour) < 100:
+
+    if len(contour) < 2:
+        return False
+    if cv2.contourArea(contour) < 1:
         return False
     if cv2.contourArea(contour)/cv2.contourArea(cv2.convexHull(contour)) < 0.8:
         return False
-    x, y, w, h = cv2.boundingRect(contour)
-    ratio = w/h
-    if 0.97 < ratio < 1.03:
+    (x,y), (width, height), angle = cv2.minAreaRect(contour)
+    ratio = width/height
+    if 0.7 < ratio < 1.3:
         return False
     return True
 
@@ -45,6 +48,26 @@ def contours_as_img(img):
     mask = np.zeros(img.shape[:2], dtype="uint8")
     contours = get_cell_contours(img)
     for contour in contours:
+        (x,y), (width, height), angle = cv2.minAreaRect(contour)
+        if width < height:
+            width, height = height, width
+            angle += 90
+        contour = np.int0(cv2.boxPoints(((x, y), (width, height), angle)))
+        cv2.drawContours(mask, [contour], -1, 255, -1)
+    return mask
+
+def flatern_rectangles(img):
+    img = cv2.medianBlur(img, 3)
+    mask = np.zeros(img.shape[:2], dtype="uint8")
+    contours = get_cell_contours(img)
+    for contour in contours:
+        (x,y), (width, height), angle = cv2.minAreaRect(contour)
+        if width < height:
+            width, height = height, width
+            angle += 90
+        width += 45
+        height = 0.5
+        contour = np.int0(cv2.boxPoints(((x, y), (width, height), angle)))
         cv2.drawContours(mask, [contour], -1, 255, -1)
     return mask
 
@@ -70,25 +93,6 @@ def green_light(ranges):
 
 #     print(stop, go)
 
-def thin(img):
-    size = np.size(img)
-    skel = np.zeros(img.shape,np.uint8)
-
-    ret,img = cv2.threshold(img,127,255,0)
-    element = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
-    done = False
-
-    while( not done):
-        eroded = cv2.erode(img,element)
-        temp = cv2.dilate(eroded,element)
-        temp = cv2.subtract(img,temp)
-        skel = cv2.bitwise_or(skel,temp)
-        img = eroded.copy()
-
-        zeros = size - cv2.countNonZero(img)
-        if zeros==size:
-            done = True
-    return skel
 
 imgs = [persp_trans(np.load(i)) for i in glob("rect*.npy")]
 img_start = imgs[-1]
@@ -103,6 +107,7 @@ for img_start in imgs:
     m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     # m = cv2.dilate(m, kernel, iterations=5)
+    m = cv2.erode(m, kernel, iterations=2)
     m[m>0] = 255
     img = m
 
@@ -163,7 +168,6 @@ for img_start in imgs:
     # img[699-50-80:699-80, CENTER] = 255
     img[699-50:699, mid] = 255
     img[699-50:699, CENTER] = 255
-    skel = thin(img)
     # skel2 = morphology.skeletonize(img.astype(np.bool))
-    show(img_start, img, contours_as_img(img))
+    show(img, contours_as_img(img), flatern_rectangles(img))
     # break
