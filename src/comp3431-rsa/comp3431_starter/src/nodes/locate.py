@@ -37,7 +37,7 @@ def remove_small_contours(img):
 
 
 def bounding_box(img):
-    grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    grey = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     blur = cv2.medianBlur(grey, 7)
     blur[blur > 0] = 255
     return blur
@@ -47,7 +47,7 @@ def contours_from_mask(img):
 
 
 def contours_from_range(img, lo, hi):
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
     mask = cv2.inRange(img, lo, hi)
     half = cv2.bitwise_and(img, img, mask=mask)
     return contours_from_mask(half)
@@ -68,14 +68,40 @@ def find_beacon(top, bottom):
             if by - ty - th > bh/2:
                 continue
             tx, ty = (int(tx + tw/2), int(ty + th/2)) # setting them to the middle
+            return tx, ty
 
             tx , ty = int(tx*0.75), int(ty*0.75)
             return (ty, tx)
 
+def contour_ranges(img):
+    ranges = {}
+    #RGB HSV: Pink
+    pink_lowerHSV = (150, 80, 80)
+    pink_upperHSV = (180, 210, 255)
+    ranges["pink"] = contours_from_range(img, pink_lowerHSV, pink_upperHSV)
+
+    #RGB HSV: Blue
+    blue_lowerHSV = (84, 130, 55)
+    blue_upperHSV = (110, 255, 255)
+    ranges["blue"] = contours_from_range(img, blue_lowerHSV, blue_upperHSV)
+
+    #RGB HSV: Green
+    green_lowerHSV = (50, 100, 15)
+    green_upperHSV = (83, 255, 150)
+    ranges["green"] = contours_from_range(img, green_lowerHSV, green_upperHSV)
+
+    #RGB HSV: Yellow:
+    yellow_lowerHSV = (0, 120, 50)
+    yellow_upperHSV = (30, 255, 255)
+    ranges["yellow"] = contours_from_range(img, yellow_lowerHSV, yellow_upperHSV)
+
+    return ranges
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
     def show(*images):
+        if len(images) == 1 and type(images[0]) == list:
+            images = images[0]
         cols = 3
         num_rows = (len(images) - 1) // cols + 1
         plt.rcParams['figure.figsize'] = [20, 7]
@@ -92,30 +118,32 @@ if __name__ == "__main__":
         return img
 
 
-    img = np.load("10.npy")
+    imgs = [np.load(img) for img in ["curved_stop.npy", "curved_stop2.npy", "flat_stop.npy"]]
+    # img = np.load("10.npy")
+    img = imgs[2]
 
     ranges = {}
-    #BGR HSV: Pink
+    #RGB HSV: Pink
     pink_lowerHSV = (150, 80, 80)
     pink_upperHSV = (180, 210, 255)
     ranges["pink"] = contours_from_range(img, pink_lowerHSV, pink_upperHSV)
 
-    #BGR HSV: Blue
+    #RGB HSV: Blue
     blue_lowerHSV = (84, 130, 55)
     blue_upperHSV = (110, 255, 255)
     ranges["blue"] = contours_from_range(img, blue_lowerHSV, blue_upperHSV)
 
-    #BGR HSV: Green
+    #RGB HSV: Green
     green_lowerHSV = (50, 100, 15)
     green_upperHSV = (83, 255, 150)
     ranges["green"] = contours_from_range(img, green_lowerHSV, green_upperHSV)
 
-    #BGR HSV: Yellow:
+    #RGB HSV: Yellow:
     yellow_lowerHSV = (0, 120, 50)
     yellow_upperHSV = (30, 255, 255)
     ranges["yellow"] = contours_from_range(img, yellow_lowerHSV, yellow_upperHSV)
 
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
     mask = cv2.inRange(img, pink_lowerHSV, pink_upperHSV)
     pink = cv2.bitwise_and(img, img, mask=mask)
     mask = cv2.inRange(img, blue_lowerHSV, blue_upperHSV)
