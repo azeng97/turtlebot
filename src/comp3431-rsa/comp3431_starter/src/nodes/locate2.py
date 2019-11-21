@@ -25,7 +25,7 @@ def show(*images, cols=3):
         plt.imshow(im, cmap='gray')
     plt.show()
 
-def valid_contour(contour):
+def valid_rect(contour):
     if len(contour) < 2:
         return False
     if cv2.contourArea(contour) < 1:
@@ -38,14 +38,38 @@ def valid_contour(contour):
         return False
     return True
 
-def get_cell_contours(img):
+def get_rect_contours(img):
     contours = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[1]
-    return [c for c in contours if valid_contour(c)]
+    return [c for c in contours if valid_rect(c)]
+
+def get_not_rect_contours(img):
+    contours = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[1]
+    return [c for c in contours if valid_rect(c)]
+
+def thin(img):
+    size = np.size(img)
+    skel = np.zeros(img.shape,np.uint8)
+
+    ret,img = cv2.threshold(img,127,255,0)
+    element = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
+    done = False
+
+    while( not done):
+        eroded = cv2.erode(img,element)
+        temp = cv2.dilate(eroded,element)
+        temp = cv2.subtract(img,temp)
+        skel = cv2.bitwise_or(skel,temp)
+        img = eroded.copy()
+
+        zeros = size - cv2.countNonZero(img)
+        if zeros==size:
+            done = True
+    return skel
 
 def contours_as_img(img):
     img = cv2.medianBlur(img, 3)
     mask = np.zeros(img.shape[:2], dtype="uint8")
-    contours = get_cell_contours(img)
+    contours = get_rect_contours(img)
     for contour in contours:
         (x,y), (width, height), angle = cv2.minAreaRect(contour)
         if width < height:
@@ -56,9 +80,9 @@ def contours_as_img(img):
     return mask
 
 def flatern_rectangles(img):
-    img = cv2.medianBlur(img, 3)
+    img = cv2.medianBlur(img, 5)
     mask = np.zeros(img.shape[:2], dtype="uint8")
-    contours = get_cell_contours(img)
+    contours = get_rect_contours(img)
     for contour in contours:
         (x,y), (width, height), angle = cv2.minAreaRect(contour)
         if width < height:
@@ -92,9 +116,24 @@ def green_light(ranges):
 
 #     print(stop, go)
 
-if __name__ == "__main__":
+def get_processed_img(img):
+    img = persp_trans(img)
+    m = mask(img, (150, 150, 150), (255, 255, 255))
+    m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    # m = cv2.dilate(m, kernel, iterations=5)
+    m = cv2.erode(m, kernel, iterations=2)
+    m[m>0] = 255
+    return cv2.bitwise_or(thin(m), flatern_rectangles(m))
 
-    imgs = [persp_trans(np.load(i)) for i in glob("rect*.npy")]
+if __name__ == "__main__":
+    for img in [np.load(i) for i in glob("rect*.npy")]:
+        show(get_processed_img(img))
+    exit()
+
+
+
+    imgs = [persp_trans(np.load(i)) for i in glob("shoul*.npy")]
     img_start = imgs[-1]
     for img_start in imgs:
 
@@ -110,6 +149,9 @@ if __name__ == "__main__":
         m = cv2.erode(m, kernel, iterations=2)
         m[m>0] = 255
         img = m
+
+        show(img, thin(img), cv2.bitwise_or(thin(img), flatern_rectangles(img)))
+        continue
 
         # img = np.flip(img, 1)
         # CENTER = 240
