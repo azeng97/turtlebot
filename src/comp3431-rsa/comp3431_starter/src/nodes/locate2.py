@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from skimage import morphology
+# from skimage import morphology
 # from simple_pid import PID
 from matplotlib import pyplot as plt
 from glob import glob
@@ -26,13 +26,15 @@ def show(*images, cols=3):
     plt.show()
 
 def valid_contour(contour):
-    if cv2.contourArea(contour) < 100:
+    if len(contour) < 2:
+        return False
+    if cv2.contourArea(contour) < 1:
         return False
     if cv2.contourArea(contour)/cv2.contourArea(cv2.convexHull(contour)) < 0.8:
         return False
-    x, y, w, h = cv2.boundingRect(contour)
-    ratio = w/h
-    if 0.97 < ratio < 1.03:
+    (x,y), (width, height), angle = cv2.minAreaRect(contour)
+    ratio = width/height
+    if 0.7 < ratio < 1.3:
         return False
     return True
 
@@ -45,6 +47,26 @@ def contours_as_img(img):
     mask = np.zeros(img.shape[:2], dtype="uint8")
     contours = get_cell_contours(img)
     for contour in contours:
+        (x,y), (width, height), angle = cv2.minAreaRect(contour)
+        if width < height:
+            width, height = height, width
+            angle += 90
+        contour = np.int0(cv2.boxPoints(((x, y), (width, height), angle)))
+        cv2.drawContours(mask, [contour], -1, 255, -1)
+    return mask
+
+def flatern_rectangles(img):
+    img = cv2.medianBlur(img, 3)
+    mask = np.zeros(img.shape[:2], dtype="uint8")
+    contours = get_cell_contours(img)
+    for contour in contours:
+        (x,y), (width, height), angle = cv2.minAreaRect(contour)
+        if width < height:
+            width, height = height, width
+            angle += 90
+        width += 45
+        height = 0.5
+        contour = np.int0(cv2.boxPoints(((x, y), (width, height), angle)))
         cv2.drawContours(mask, [contour], -1, 255, -1)
     return mask
 
@@ -70,100 +92,82 @@ def green_light(ranges):
 
 #     print(stop, go)
 
-def thin(img):
-    size = np.size(img)
-    skel = np.zeros(img.shape,np.uint8)
+if __name__ == "__main__":
 
-    ret,img = cv2.threshold(img,127,255,0)
-    element = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
-    done = False
+    imgs = [persp_trans(np.load(i)) for i in glob("rect*.npy")]
+    img_start = imgs[-1]
+    for img_start in imgs:
 
-    while( not done):
-        eroded = cv2.erode(img,element)
-        temp = cv2.dilate(eroded,element)
-        temp = cv2.subtract(img,temp)
-        skel = cv2.bitwise_or(skel,temp)
-        img = eroded.copy()
+        # img_start[625:] = 0
+        CENTER = 397
+        TOP = 699
+        TOP = 625
+        WIDTH = 38
+        m = mask(img_start, (150, 150, 150), (255, 255, 255))
+        m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        # m = cv2.dilate(m, kernel, iterations=5)
+        m = cv2.erode(m, kernel, iterations=2)
+        m[m>0] = 255
+        img = m
 
-        zeros = size - cv2.countNonZero(img)
-        if zeros==size:
-            done = True
-    return skel
+        # img = np.flip(img, 1)
+        # CENTER = 240
 
-imgs = [persp_trans(np.load(i)) for i in glob("rect*.npy")]
-img_start = imgs[-1]
-for img_start in imgs:
+        if img[TOP, CENTER]:
+            left_count = 0
+            right_count = 0
+            for height in range(20):
+                for width in range(50):
+                    if img[TOP-height, CENTER-width]:
+                        left_count += 1
+                    if img[TOP-height, CENTER+width]:
+                        right_count += 1
+            if left_count / right_count > 5:
+                print("TURN LEFT NOW!!!!")
+            if right_count / left_count > 5:
+                print("TURN RIGHT NOW!!!!")
 
-    # img_start[625:] = 0
-    CENTER = 397
-    TOP = 699
-    TOP = 625
-    WIDTH = 38
-    m = mask(img_start, (150, 150, 150), (255, 255, 255))
-    m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    # m = cv2.dilate(m, kernel, iterations=5)
-    m[m>0] = 255
-    img = m
 
-    # img = np.flip(img, 1)
-    # CENTER = 240
 
-    if img[TOP, CENTER]:
-        left_count = 0
-        right_count = 0
-        for height in range(20):
-            for width in range(50):
+        # # # new ###########################
+        lefts, rights = [], []
+        for height in range(50):
+        # for height in range(80, 80+50):
+            for width in range(100):
                 if img[TOP-height, CENTER-width]:
-                    left_count += 1
+                    lefts.append(width)
+                    break
+            for width in range(100):
                 if img[TOP-height, CENTER+width]:
-                    right_count += 1
-        if left_count / right_count > 5:
-            print("TURN LEFT NOW!!!!")
-        if right_count / left_count > 5:
-            print("TURN RIGHT NOW!!!!")
-
-
-
-    # # # new ###########################
-    lefts, rights = [], []
-    for height in range(50):
-    # for height in range(80, 80+50):
-        for width in range(100):
-            if img[TOP-height, CENTER-width]:
-                lefts.append(width)
-                break
-        for width in range(100):
-            if img[TOP-height, CENTER+width]:
-                rights.append(width)
-                break
-    # rights = []
-    if lefts and rights:
-        print("both")
-        print(len(lefts), len(rights))
-        mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
-    elif lefts:
-        print("lefts")
-        mid = CENTER - int(np.mean(lefts)) + WIDTH
-    elif rights:
-        print("rights")
-        mid = CENTER + int(np.mean(rights)) - WIDTH
-    else:
-        mid = False
-    control = mid - CENTER
-    # control = pid(control)/100.0
-    control = control/100.0
-    print("at:", mid)
-    print("control:", control)
-    if control > 0:
-        print("turn left")
-    else:
-        print("turn right")
-    # img[699-50-80:699-80, mid] = 255
-    # img[699-50-80:699-80, CENTER] = 255
-    img[699-50:699, mid] = 255
-    img[699-50:699, CENTER] = 255
-    skel = thin(img)
-    # skel2 = morphology.skeletonize(img.astype(np.bool))
-    show(img_start, img, contours_as_img(img))
-    # break
+                    rights.append(width)
+                    break
+        # rights = []
+        if lefts and rights:
+            print("both")
+            print(len(lefts), len(rights))
+            mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
+        elif lefts:
+            print("lefts")
+            mid = CENTER - int(np.mean(lefts)) + WIDTH
+        elif rights:
+            print("rights")
+            mid = CENTER + int(np.mean(rights)) - WIDTH
+        else:
+            mid = False
+        control = mid - CENTER
+        # control = pid(control)/100.0
+        control = control/100.0
+        print("at:", mid)
+        print("control:", control)
+        if control > 0:
+            print("turn left")
+        else:
+            print("turn right")
+        # img[699-50-80:699-80, mid] = 255
+        # img[699-50-80:699-80, CENTER] = 255
+        img[699-50:699, mid] = 255
+        img[699-50:699, CENTER] = 255
+        # skel2 = morphology.skeletonize(img.astype(np.bool))
+        show(img, contours_as_img(img), flatern_rectangles(img))
+        # break
