@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from skimage import morphology
+#from skimage import morphology
 #from simple_pid import PID
 import perpective_transform
 from matplotlib import pyplot as plt
@@ -24,9 +24,14 @@ import numpy as np
 from locate import contours_from_range, find_beacon
 
 from geometry_msgs.msg import Twist
-from time import time
+import time
+import random
 count = 0
 start = 0
+
+CENTER = 397
+TOP = 699
+WIDTH = 38
 
 LEFT = -1
 RIGHT = 1
@@ -70,18 +75,11 @@ def callback(pixel_data):
     global rightvotes
     global leftvotes
     global forcedTurn
-    CENTER = 397
-    TOP = 699
-    #WIDTH = 38
-    WIDTH = 38
     global count
     global start
     count += 1
     #print(count)
-    if count == 1:
-        start = time()
-    if count == 20:
-        print("time = ", time() - start)
+
     pts1 = np.float32([[0,480],[640,480],[0,295],[640,295]])
     pts2 = np.float32([[360,700],[450,700],[0,0],[640,380]])
 
@@ -103,6 +101,22 @@ def callback(pixel_data):
     img = m
     #img = find_skeleton3(img)
     
+    stopped = False
+    # Stops car until this returns False
+    while carShouldStop(img): 
+        stopped = True
+        twist.linear.x = twist.linear.y = twist.linear.z = 0
+        twist.angular.x = twist.angular.y = twist.angular.z = 0
+        cmd_vel_pub.publish(twist)
+        time.sleep(1.5)
+
+        # Comment out the break here for Go signal functionality in carShouldStop()
+        break
+
+    # Action after being stopped and now being able to Go
+    if stopped:
+        stopped = False
+        makeTurn()
 
     lefts, rights = [], []
     forcedLefts, forcedRights = [], []
@@ -442,6 +456,57 @@ def callback(pixel_data):
 
     # print("turn by:", control)
     
+
+# Returns True or False depending on whether the car should stop or not
+# (based on state of Stop/Go signals in view and stop line detection)
+def carShouldStop(img):
+    return detectStopLine(img)
+
+# Returns True or False depending on whether a stop line has been detected
+def detectStopLine(img):
+    for y in range(70):
+        # Check if there is a line in front, and then if lines on either side coming
+        # back towards the robot (which are roughly the same distance apart)
+        if img[150-y][CENTER]: # Line directly in front
+            dist = 50 # TODO SET THIS TO THE PIXEL WIDTH OF THE LANE
+            errors = 0
+            for n in range(5):
+                left = right = 0
+                for x in range(30) # ADJUST THIS RANGE
+                    if img[150-y - 10*n][CENTER-x]:
+                        left = CENTER-x
+                        break
+                for x in range(30);
+                    if img[150-y - 10*n][CENTER+x]:
+                        right = CENTER+x
+                        break
+                if abs(dist-(right-left)) > 5 or right == 0 or left == 0: # 5 is the margin of error ADJUST THIS
+                    errors += 1
+                    if errors > 1: # Maximum number of errors
+                        return False
+    return True
+
+
+def makeTurn():
+    if random.randint(0, 1): # Right or Left
+        twist.linear.x = 0.15
+        twist.linear.y = twist.linear.z = 0
+        twist.angular.x = twist.angular.y = 0
+        twist.angular.z = -0.23
+    else:
+        twist.linear.x = 0.10
+        twist.linear.y = twist.linear.z = 0
+        twist.angular.x = twist.angular.y = 0
+        twist.angular.z = 0.3
+
+    cmd_vel_pub.publish(twist)
+    time.sleep(1)
+
+    twist.linear.x = 0
+    twist.linear.y = twist.linear.z = 0
+    twist.angular.x = twist.angular.y = 0
+    twist.angular.z = 0
+    cmd_vel_pub.publish(twist)
 
 def getCameraData(pixel_data):
     # TODO check if subscribed topics correct
