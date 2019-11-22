@@ -40,7 +40,7 @@ def valid_rect(contour):
     if (angle == 0 or angle == 180) and y > 650:
         return False
     ratio = width/height
-    if 0.9 < ratio < 1.1:
+    if 0.7 < ratio < 1.3:
         return False
     return True
 
@@ -192,10 +192,13 @@ def get_processed_img(img):
     # m = cv2.dilate(m, kernel, iterations=5)
     m = cv2.erode(m, kernel, iterations=2)
     m[m>0] = 255
+    final = cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
+    print(detectStopLine(final))
+    show(img, m, cv2.bitwise_or(long_thin(m), flatern_rectangles(m)))
     return cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
 
 if __name__ == "__main__":
-    for img in [np.load(i) for i in glob("*stop*.npy")]:
+    for img in [np.load(i) for i in glob("rect*.npy")]:
         get_processed_img(img)
         # show(get_processed_img(img))
     exit()
