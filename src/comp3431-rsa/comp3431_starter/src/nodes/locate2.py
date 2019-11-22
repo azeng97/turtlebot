@@ -29,12 +29,9 @@ def show(*images):
 def valid_rect(contour):
     if len(contour) < 2:
         return False
-    area = cv2.contourArea(contour)
-    if area < 1:
+    if cv2.contourArea(contour) < 1:
         return False
-    if area > 1000:
-        return False
-    if area/cv2.contourArea(cv2.convexHull(contour)) < 0.8:
+    if cv2.contourArea(contour)/cv2.contourArea(cv2.convexHull(contour)) < 0.8:
         return False
     (x,y), (width, height), angle = cv2.minAreaRect(contour)
     if width < height:
@@ -47,72 +44,66 @@ def valid_rect(contour):
         return False
     return True
 
-# def valid_dash(contour):
-#     (x,y), (width, height), angle = cv2.minAreaRect(contour)
-#     if max(width, height) < 50:
-#         return True
-#     return False
+def valid_dash(contour):
+    (x,y), (width, height), angle = cv2.minAreaRect(contour)
+    if max(width, height) < 50:
+        return True
+    return False
 
 def get_rect_contours(img):
     contours = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[1]
     return [c for c in contours if valid_rect(c)]
 
-# def get_thinned_rect_contours(img):
-#     contours = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[1]
-#     return [c for c in contours if valid_dash(c)]
+def get_thinned_rect_contours(img):
+    contours = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[1]
+    return [c for c in contours if valid_dash(c)]
 
-# def thin(img):
-#     size = np.size(img)
-#     skel = np.zeros(img.shape,np.uint8)
+def thin(img):
+    size = np.size(img)
+    skel = np.zeros(img.shape,np.uint8)
 
-#     ret,img = cv2.threshold(img,127,255,0)
-#     element = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
-#     done = False
+    ret,img = cv2.threshold(img,127,255,0)
+    element = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
+    done = False
 
-#     while( not done):
-#         eroded = cv2.erode(img,element)
-#         temp = cv2.dilate(eroded,element)
-#         temp = cv2.subtract(img,temp)
-#         skel = cv2.bitwise_or(skel,temp)
-#         img = eroded.copy()
+    while( not done):
+        eroded = cv2.erode(img,element)
+        temp = cv2.dilate(eroded,element)
+        temp = cv2.subtract(img,temp)
+        skel = cv2.bitwise_or(skel,temp)
+        img = eroded.copy()
 
-#         zeros = size - cv2.countNonZero(img)
-#         if zeros==size:
-#             done = True
+        zeros = size - cv2.countNonZero(img)
+        if zeros==size:
+            done = True
 
-#     return cv2.dilate(skel,element)
+    return cv2.dilate(skel,element)
 
 
-# def long_thin(img):
-#     img = thin(img)
-#     contours = get_thinned_rect_contours(img)
-#     mask = np.zeros(img.shape[:2], dtype="uint8")
-#     for contour in contours:
-#         (x,y),radius = cv2.minEnclosingCircle(contour)
-#         center = (int(x),int(y))
-#         radius = int(radius) + 3
-#         cv2.circle(img,center,radius,(0,0,0),-1)
-#     return img
+def long_thin(img):
+    img = thin(img)
+    contours = get_thinned_rect_contours(img)
+    mask = np.zeros(img.shape[:2], dtype="uint8")
+    for contour in contours:
+        (x,y),radius = cv2.minEnclosingCircle(contour)
+        center = (int(x),int(y))
+        radius = int(radius) + 3
+        cv2.circle(img,center,radius,(0,0,0),-1)
+    return img
 
-# def contours_as_img(img):
-#     img = cv2.medianBlur(img, 3)
-#     mask = np.zeros(img.shape[:2], dtype="uint8")
-#     contours = get_rect_contours(img)
-#     for contour in contours[::-1]:
-#         (x,y), (width, height), angle = cv2.minAreaRect(contour)
-#         if width < height:
-#             width, height = height, width
-#             angle += 90
-#         if abs(angle) == 90:
-#             angle = -90
-#         # x_new = x - height * np.sin(angle)/2
-#         # y_new = y - height * np.cos(angle)/2
-#         # contour = np.int0(cv2.boxPoints(((x_new, y_new), (width+30, 1), angle)))
-#         # cv2.drawContours(mask, [contour], -1, 150, -1)
-#         contour = np.int0(cv2.boxPoints(((x, y), (width, height), angle)))
-#         cv2.drawContours(mask, [contour], -1, 255, -1)
-#         # return mask
-#     return mask
+
+def contours_as_img(img):
+    img = cv2.medianBlur(img, 3)
+    mask = np.zeros(img.shape[:2], dtype="uint8")
+    contours = get_rect_contours(img)
+    for contour in contours:
+        (x,y), (width, height), angle = cv2.minAreaRect(contour)
+        if width < height:
+            width, height = height, width
+            angle += 90
+        contour = np.int0(cv2.boxPoints(((x, y), (width, height), angle)))
+        cv2.drawContours(mask, [contour], -1, 255, -1)
+    return mask
 
 def flatern_rectangles(img):
     img = cv2.medianBlur(img, 5)
@@ -124,7 +115,7 @@ def flatern_rectangles(img):
             width, height = height, width
             angle += 90
         width += 45
-        # height = 0.5
+        height = 0.5
         contour = np.int0(cv2.boxPoints(((x, y), (width, height), angle)))
         cv2.drawContours(mask, [contour], -1, 255, -1)
     return mask
@@ -135,11 +126,11 @@ def persp_trans(img):
     M = cv2.getPerspectiveTransform(pts1,pts2)
     return cv2.warpPerspective(img,M,(640,700))
 
-# def red_light(ranges):
-#     return (find_beacon(ranges["pink"], ranges["green"]) or find_beacon(ranges["pink"], ranges["yellow"]) or find_beacon(ranges["pink"], ranges["blue"])) != None
+def red_light(ranges):
+    return (find_beacon(ranges["pink"], ranges["green"]) or find_beacon(ranges["pink"], ranges["yellow"]) or find_beacon(ranges["pink"], ranges["blue"])) != None
 
-# def green_light(ranges):
-#     return (find_beacon(ranges["green"], ranges["pink"]) or find_beacon(ranges["yellow"], ranges["pink"]) or find_beacon(ranges["blue"], ranges["pink"])) != None
+def green_light(ranges):
+    return (find_beacon(ranges["green"], ranges["pink"]) or find_beacon(ranges["yellow"], ranges["pink"]) or find_beacon(ranges["blue"], ranges["pink"])) != None
 
 
 # imgs = [np.load(img) for img in ["curved_stop.npy", "curved_stop2.npy", "flat_stop.npy", "stop_now.npy"]]
@@ -151,46 +142,46 @@ def persp_trans(img):
 
 #     print(stop, go)
 
-# CENTER = 397
-# TOP = 699
-# WIDTH = 47
+CENTER = 397
+TOP = 699
+WIDTH = 47
 
-# def detectStopLine(img):
-#     for y in range(150):
-#         # Check if there is a line in front, and then if lines on either side coming
-#         # back towards the robot (which are roughly the same distance apart)
-#         if img[TOP-y][CENTER]: # Line directly in front
-#             lefts = []
-#             rights = []
-#             for n in range(1, 10):
-#                 left = right = 0
-#                 if 5*n - y > 0:
-#                     break
-#                 for x in range(60):
-#                     if img[TOP-y + 5*n][CENTER-x]:
-#                         left = CENTER-x
-#                         break
-#                 if (left == 0 or right == 0) and TOP-y + 5*n > 665:
-#                     break
-#                 for x in range(60):
-#                     if img[TOP-y + 5*n][CENTER+x]:
-#                         right = CENTER+x
-#                         break
-#                 if left == 0 or right == 0:
-#                     return False
-#                 lefts.append(left)
-#                 rights.append(right)
-#             if len(lefts) == 0:
-#                 # print("too short")
-#                 return False
-#             if abs(WIDTH*2-(np.mean(rights)-np.mean(lefts))) > 15:
-#                 # print("not in center")
-#                 return False
-#             if np.std(np.array(lefts) - np.array(rights)) > 9:
-#                 # print("lines aren't parallel")
-#                 return False
-#             return True
-#     return False
+def detectStopLine(img):
+    for y in range(150):
+        # Check if there is a line in front, and then if lines on either side coming
+        # back towards the robot (which are roughly the same distance apart)
+        if img[TOP-y][CENTER]: # Line directly in front
+            lefts = []
+            rights = []
+            for n in range(1, 10):
+                left = right = 0
+                if 5*n - y > 0:
+                    break
+                for x in range(60):
+                    if img[TOP-y + 5*n][CENTER-x]:
+                        left = CENTER-x
+                        break
+                if (left == 0 or right == 0) and TOP-y + 5*n > 665:
+                    break
+                for x in range(60):
+                    if img[TOP-y + 5*n][CENTER+x]:
+                        right = CENTER+x
+                        break
+                if left == 0 or right == 0:
+                    return False
+                lefts.append(left)
+                rights.append(right)
+            if len(lefts) == 0:
+                # print("too short")
+                return False
+            if abs(WIDTH*2-(np.mean(rights)-np.mean(lefts))) > 15:
+                # print("not in center")
+                return False
+            if np.std(np.array(lefts) - np.array(rights)) > 9:
+                # print("lines aren't parallel")
+                return False
+            return True
+    return False
 
 
 def get_processed_img(img):
@@ -201,15 +192,15 @@ def get_processed_img(img):
     # m = cv2.dilate(m, kernel, iterations=5)
     m = cv2.erode(m, kernel, iterations=2)
     m[m>0] = 255
-    # final = cv2.bitwise_or(m, flatern_rectangles(m))
-    # print(detectStopLine(final))
-    # show(m, final, cv2.bitwise_or(long_thin(m), flatern_rectangles(m)))
-    return cv2.bitwise_or(m, flatern_rectangles(m))
+    final = cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
+    print(detectStopLine(final))
+    show(img, m, cv2.bitwise_or(long_thin(m), flatern_rectangles(m)))
+    return cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
 
 if __name__ == "__main__":
-    for img in [np.load(i) for i in glob("*stop*.npy")]:
-        # get_processed_img(img)
-        show(get_processed_img(img))
+    for img in [np.load(i) for i in glob("rect*.npy")]:
+        get_processed_img(img)
+        # show(get_processed_img(img))
     exit()
 
 
