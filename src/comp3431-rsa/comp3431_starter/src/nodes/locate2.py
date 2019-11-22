@@ -29,9 +29,12 @@ def show(*images):
 def valid_rect(contour):
     if len(contour) < 2:
         return False
-    if cv2.contourArea(contour) < 1:
+    area = cv2.contourArea(contour)
+    if area < 1:
         return False
-    if cv2.contourArea(contour)/cv2.contourArea(cv2.convexHull(contour)) < 0.8:
+    if area > 1000:
+        return False
+    if area/cv2.contourArea(cv2.convexHull(contour)) < 0.8:
         return False
     (x,y), (width, height), angle = cv2.minAreaRect(contour)
     if width < height:
