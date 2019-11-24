@@ -29,13 +29,12 @@ import time
 from locate2 import get_processed_img
 from locate import contour_ranges, find_beacon
 
-
 LEFT = -1
 RIGHT = 1
 NONE = 0
-RVIZ = True
+RVIZ = False
 TOP = 699
-CENTER = 395
+CENTER = 397
 WIDTH = 47
 CONTROL_CENTER = 390
 
@@ -54,8 +53,9 @@ class Control():
     def __init__(self, img, twist):
         self.original = img
         self.img = get_processed_img(img)
+        #self.img = getProcessedImg(img)
         self.rvizImg = self.img
-        self.hitHeight = self.findHitHeight(self.img)
+        self.hitHeight, self.hitWidth = self.findHitHeight(self.img)
         
 
         self.twist = twist
@@ -69,18 +69,16 @@ class Control():
     def findHitHeight(self, img):
 
         for hitHeight in range(TOP):
-            for hitHeightDistFromCenter in range(3): # To avoid going through holes in lines
-                if ((TOP - hitHeight >= 0 and img[TOP - hitHeight, CENTER - hitHeightDistFromCenter]
-                        or img[TOP - hitHeight, CENTER + hitHeightDistFromCenter])):
-                    return hitHeight
+            for hitWidth in range(3): # To avoid going through holes in lines
+                if (TOP - hitHeight >= 0):
+                    if img[TOP - hitHeight, CENTER - hitWidth]:
+                        return hitHeight, - hitWidth - 1
+                    if img[TOP - hitHeight, CENTER + hitWidth]:
+                        return hitHeight, hitWidth + 1
 
-        for hitHeight in range(TOP):
-            for hitHeightRange in range(15):
-                if ((TOP - hitHeight - hitHeightRange >= 0 and img[TOP - hitHeight - hitHeightRange, CENTER])
-                        or (TOP - hitHeight + hitHeightRange < 700 and img[TOP - hitHeight + hitHeightRange, CENTER])):
-                    return hitHeight - hitHeightRange
+        return 699, 0
 
-        return 699
+        
 
 
     # Returns True or False depending on whether a stop line has been detected
@@ -107,7 +105,7 @@ class Control():
                 return False
             lefts.append(left)
             rights.append(right)
-        if len(lefts) == 0:
+        if len(lefts) < 4:
             # print("too short")
             return False
         if abs(WIDTH*2-(np.mean(rights)-np.mean(lefts))) > 15:
@@ -117,6 +115,7 @@ class Control():
             # print("lines aren't parallel")
             return False
         print("found stop line!!!")
+        np.save("found_stop", img)
         return True
 
     def useRviz(self):
@@ -179,7 +178,7 @@ class Control():
         #     return -1   
         return 0
 
-
+    
     def doRightTurn(self):
         self.twist.linear.x = 0.0
         self.twist.angular.z = 0.0
@@ -190,26 +189,64 @@ class Control():
         cmd_vel_pub.publish(self.twist)
         time.sleep(4)
 
+    overshot = False
+    prevHitHeight = 700
+    lastTurns = [0]
+    
+
+
+    def updateOvershotLine(self):
+
+        if Control.prevHitHeight < 10 and self.hitHeight > 50:
+            Control.overshot = True
+
+        if Control.overshot and self.hitHeight > 5 and self.hitHeight < 40:
+            Control.overshot = False
+
+        Control.prevHitHeight = self.hitHeight
+
+    def updateLastTurns(self, turn):
+        
+        if len(Control.lastTurns) > 5:
+            Control.lastTurns.pop(0)
+        Control.lastTurns.append(turn)
+
+    def getLastTurn(self):
+        return max(set(self.lastTurns), key=self.lastTurns.count)
+    
+        
+
 
     def step(self):
         print("hitHeight = ", self.hitHeight)
+
+        if RVIZ:
+            self.useRviz()
+        
         if (20 < self.hitHeight < 150 and self.detectStopLine(self.img)):
             Control.useStabilise = True
-            print("stop")
+
         if self.hitHeight < 10 and Control.useStabilise:
             Control.aboutToCrossStopLine = True
             Control.hasMovedUp = False
-
-        if Control.aboutToCrossStopLine and self.hitHeight > 10:
+        elif Control.aboutToCrossStopLine:
             Control.useStabilise = False
             self.makeTurn()
             self.completeAdjustment()
             return
+        
 
-
+        self.updateOvershotLine()
+        #print(Control.overshot)
+        if Control.overshot:
+            print("OVERSHOT. LAST TURN =", self.getLastTurn())
+            self.twist.linear.x = 0.05
+            self.twist.angular.z = self.getLastTurn()
+            cmd_vel_pub.publish(self.twist)
+            return
 
         Control.lastAdjustmentTurnTime += 1
-        if Control.lastAdjustmentTurnTime > 100 and self.hitHeight > 80 and self.hitHeight < 200:
+        if Control.lastAdjustmentTurnTime > 100 and self.hitHeight > 130 and self.hitHeight < 200:
             if Control.cornerAdjustmentTurn == NONE or Control.adjustmentCertainty < 10:
                 Control.cornerAdjustmentTurn = self.detectCornerTurn(self.hitHeight, self.img)
                 if Control.cornerAdjustmentTurn == LEFT:
@@ -219,28 +256,42 @@ class Control():
                 else:
                     print("next corner turn = NONE")
 
-        if (self.hitHeight > 100 or Control.useStabilise):
+        if (self.hitHeight > 100 or Control.useStabilise): #STABILISE
             self.stabilise()
             self.twist.linear.x = 0.2
             print("1", self.twist.angular.z)
             cmd_vel_pub.publish(self.twist)
-        elif self.hitHeight > 50:
-            self.twist.angular.z = 0
+        elif self.hitHeight > 50: 
+            #self.twist.angular.z = 0
+            self.stabilise()
             self.twist.linear.x = 0.1
+            self.twist.angular.z *= 0.7
             cmd_vel_pub.publish(self.twist)
             print("2", self.twist.angular.z)
         else:
             self.twist.linear.x = 0.05
-            if (self.hitHeight < 25):
+            if (self.hitHeight < 5):
+                #self.twist.linear.x = 0.01
+                self.turnNow(adjustToCorner=True)
+                print("5", self.twist.angular.z)
+                self.updateLastTurns(self.twist.angular.z)
+                self.twist.angular.z = self.getLastTurn()
+            elif self.hitHeight < 10:
+                #self.twist.linear.x = 0.025
                 self.turnNow()
+                self.updateLastTurns(self.twist.angular.z)
+                self.twist.angular.z = self.getLastTurn()
+                self.twist.angular.z *= 0.5
                 print("4", self.twist.angular.z)
             else:
+                self.turnNow()
+                self.updateLastTurns(self.twist.angular.z)
+                self.twist.angular.z *= 0.2
                 print("3", self.twist.angular.z)
 
             cmd_vel_pub.publish(self.twist)
 
-        if RVIZ:
-            self.useRviz()
+        
 
     def detectCornerTurn(self, atHeight, img):
         next_turn = NONE
@@ -274,50 +325,81 @@ class Control():
         Control.cornerAdjustmentTurn = NONE
         Control.adjustmentCertainty = 0
 
-    #To be called when hitHeight < 1. Either adjust, or turn based off the line orientation
-    def turnNow(self):
-        if Control.timeSpentAdjusting > 30:
+    #To be called when hitHeight is very low. Either adjust to corner, or turn based off the line orientation
+    def turnNow(self, adjustToCorner=False):
+
+        if Control.timeSpentAdjusting > 20:
             self.completeAdjustment()
-        print("adjustment", Control.cornerAdjustmentTurn)
-        print("time", Control.timeSpentAdjusting)
-        if Control.cornerAdjustmentTurn == LEFT and Control.adjustmentCertainty > 5:
+
+        if ((adjustToCorner or Control.timeSpentAdjusting > 0) 
+                and Control.cornerAdjustmentTurn == LEFT and Control.adjustmentCertainty > 5):
             self.twist.angular.z = 0.3
             Control.timeSpentAdjusting += 1
             print("forced turn LEFT")
-        elif Control.cornerAdjustmentTurn == RIGHT and Control.adjustmentCertainty > 5:
+        elif ((adjustToCorner or Control.timeSpentAdjusting > 0)
+                and Control.cornerAdjustmentTurn == RIGHT and Control.adjustmentCertainty > 5):
             self.twist.angular.z = -0.3
             Control.timeSpentAdjusting += 1
             print("forced turn RIGHT")
+
         else:
             lefts, rights = self.findLineOrientation(self.hitHeight, self.img)
             avgLefts = np.mean(lefts)
             avgRights = np.mean(rights)
+            print("ABS", abs(avgLefts - avgRights))
             if (avgLefts < avgRights + 1):
                 print("lefts higher than right, turn left", avgLefts, avgRights)
-                self.twist.angular.z = 0.2
+                self.twist.angular.z = 0.3
             elif (avgRights < avgLefts + 1):
                 print("rights higher than left, turn right", avgLefts, avgRights)
-                self.twist.angular.z = -0.2
+                self.twist.angular.z = -0.3
             else:
                 self.twist.angular.z = 0
 
+    def isOnLeftLine(self): # there is only one line and it is in the middle of the robot camera, but tilting to top right
+        bottomHits = []
+        topHits = []
+        for height in range(50):
+            for width in range(100):
+                if self.img[TOP - height, CONTROL_CENTER + 25 - width]:
+                    bottomHits.append(CONTROL_CENTER + 25 - width)
+        
+        for height in range(50, 100):
+            for width in range(100):
+                if self.img[TOP - height, CONTROL_CENTER + 25 - width]:
+                    topHits.append(CONTROL_CENTER + 25 - width)
+        
+        return np.mean(bottomHits) < np.mean(topHits), bottomHits, topHits
 
     def stabilise(self):
 
         lefts, rights = [], []
-        for height in range(min(self.hitHeight, 100)):
+        leftCrossed = False
+        rightCrossed = False
+
+        for height in range(min(self.hitHeight - 10, 100)):
             for width in range(60):
                 if self.img[TOP-height, CONTROL_CENTER-width]:
                     if width == 0: # the line is too close to the middle to classify as left
-                        break
-                    lefts.append(width)
+                        leftCrossed = True # the crossed from the left to the right side, do not use points from the right anymore
+                    if not rightCrossed:
+                        lefts.append(width)
                     break
+
             for width in range(60):
                 if self.img[TOP-height, CONTROL_CENTER+width]:
                     if width == 0:
-                        break
-                    rights.append(width)
+                        if not rightCrossed:
+                            lefts.pop()
+                        rightCrossed = True
+                        
+                    if not leftCrossed:
+                        rights.append(width)
                     break
+
+                
+
+
         if lefts and rights:
             mid = (2*CONTROL_CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
         elif lefts:
@@ -329,6 +411,8 @@ class Control():
             return
         control = mid - CONTROL_CENTER
         control = control/100.0
+        
+        #control = pid(control)
         self.twist.angular.z = -control
 
     def findLineOrientation(self, atHeight, img):
@@ -356,13 +440,19 @@ class Control():
                     rights.append(TOP - atHeight - scanHeight)
                     break
         if not lefts:
-            lefts = [0]
+            lefts = [699]
         if not rights:
-            rights = [0]
+            rights = [699]
         # print(lefts, rights)
         if (lefts and rights):
             self.rvizImg[np.mean(lefts), CENTER - 200: CENTER] = 255
             self.rvizImg[np.mean(rights), CENTER: CENTER + 200] = 255
+
+        if Control.cornerAdjustmentTurn == RIGHT:
+            rights.append(-1000)
+        elif Control.cornerAdjustmentTurn == LEFT:
+            lefts.append(-1000)
+            
         return lefts, rights
 
 
@@ -393,8 +483,7 @@ def detect_stop_line(img):
 
 
 def getProcessedImg(pixel_data):
-    bridge = CvBridge()
-    img = bridge.imgmsg_to_cv2(pixel_data, "rgb8")
+    img = pixel_data
     pts1 = np.float32([[0,480],[640,480],[0,295],[640,295]])
     pts2 = np.float32([[360,700],[450,700],[0,0],[640,380]])
 
@@ -404,7 +493,7 @@ def getProcessedImg(pixel_data):
     m = mask(img, (150, 150, 150), (255, 255, 255))
     m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    m = cv2.dilate(m, kernel, iterations=10)
+    #m = cv2.dilate(m, kernel, iterations=10)
     m[m>0] = 255
     img = m
     return img
@@ -426,411 +515,6 @@ def callback(pixel_data):
     control = Control(img, twist)
     control.step()
 
-
-
-
-    # global certainty
-    # global next_turn
-    # global time_spent_turning
-    # global time_after_last_forced_turn
-    # global turn
-    # global rightvotes
-    # global leftvotes
-    # global forcedTurn
-    # global useControl
-    # global aboutToCrossStopLine
-    # CENTER = 400
-    # TOP = 699
-    # #WIDTH = 38
-    # WIDTH = 38
-
-    # pts1 = np.float32([[0,480],[640,480],[0,295],[640,295]])
-    # pts2 = np.float32([[360,700],[450,700],[0,0],[640,380]])
-
-    # bridge = CvBridge()
-    # img = bridge.imgmsg_to_cv2(pixel_data, "rgb8")
-
-    # M = cv2.getPerspectiveTransform(pts1,pts2)
-
-    # dst = cv2.warpPerspective(img,M,(640,700))
-    # img = dst
-    # #show(img)
-
-    # m = mask(img, (150, 150, 150), (255, 255, 255))
-    # m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
-    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    # m = cv2.dilate(m, kernel, iterations=10)
-    # m[m>0] = 255
-    # #show(m)
-    # img = m
-    # #img = find_skeleton3(img)
-
-
-    # lefts, rights = [], []
-    # forcedLefts, forcedRights = [], []
-    # savedHitHeight = 0
-    # turnNow = False
-    # twist.linear.x = 0.05
-    # twist.linear.y = twist.linear.z = 0
-    # twist.angular.x = twist.angular.y = 0
-    # stabilise = False
-    # if detect_stop_line(img):
-    #     useControl = True
-    # for hitHeight in range(TOP):
-    #     foundHit = False
-    #     for scanHitHeight in range(15):
-    #         if ((TOP - hitHeight - scanHitHeight >= 0 and img[TOP - hitHeight - scanHitHeight, CENTER])
-    #                 or (TOP - hitHeight + scanHitHeight < 700 and img[TOP - hitHeight + scanHitHeight, CENTER])):
-    #             foundHit = True
-    #             for scanRights in range(50):
-    #                 for scanRightHitHeight in range(20):
-    #                     if (TOP - hitHeight + scanRightHitHeight < 700 and
-    #                             img[TOP - hitHeight + scanRightHitHeight, CENTER + scanRights]):
-    #                         rights.append(TOP - hitHeight + scanRightHitHeight)
-    #                         break
-    #                     if (TOP - hitHeight - scanRightHitHeight < 700 and
-    #                             img[TOP - hitHeight - scanRightHitHeight, CENTER + scanRights]):
-    #                         rights.append(TOP - hitHeight - scanRightHitHeight)
-
-    #             for scanLefts in range(50):
-    #                 for scanLeftHitHeight in range(20):
-    #                     if (TOP - hitHeight + scanLeftHitHeight < 700 and
-    #                             img[TOP - hitHeight + scanLeftHitHeight, CENTER - scanLefts]):
-    #                         lefts.append(TOP - hitHeight + scanLeftHitHeight)
-    #                         break
-    #                     if (TOP - hitHeight - scanLeftHitHeight < 700 and
-    #                             img[TOP - hitHeight - scanLeftHitHeight, CENTER - scanLefts]):
-    #                         lefts.append(TOP - hitHeight - scanLeftHitHeight)
-    #             break
-
-
-    #     if time_after_last_forced_turn > 50 and foundHit and hitHeight > 80 and hitHeight < 200:
-    #         for scanForcedTurn in range(80):
-    #             for width in range(75):
-    #                 if img[TOP - hitHeight + scanForcedTurn, CENTER - width]:
-    #                     forcedLefts.append(width)
-    #                     break
-    #             for width in range(75):
-    #                 if img[TOP - hitHeight + scanForcedTurn, CENTER + width]:
-    #                     forcedRights.append(width)
-    #                     break
-    #     if foundHit:
-    #         savedHitHeight = hitHeight
-    #         if hitHeight > 100:
-    #             stabilise = True
-    #         if hitHeight < 50:
-    #             twist.linear.x = 0.05
-    #         elif hitHeight < 100:
-    #             twist.linear.x = 0.1
-    #         else:
-    #             twist.linear.x = 0.2
-    #         if hitHeight < 1:
-    #             turnNow = True
-    #             aboutToCrossStopLine = True
-    #         break
-    #     if aboutToCrossStopLine and hitHeight > 30:
-    #         aboutToCrossStopLine = False
-    #         useControl = False
-    #         print("stop")
-    #         twist.linear.x = 0
-    #         cmd_vel_pub.publish(twist)
-    #         time.sleep(2)
-
-
-    # if time_after_last_forced_turn > 50:
-    #     if savedHitHeight > 80 and len(forcedRights) < 60:
-    #         next_turn = RIGHT
-    #         forcedTurn = True
-    #     elif savedHitHeight > 80 and len(forcedLefts) < 60:
-    #         next_turn = LEFT
-    #         forcedTurn = True
-    #     elif next_turn != NONE:
-    #         forcedTurn = True
-
-    # # if next_turn == LEFT:
-    # #     print("next forced turn = LEFT")
-    # # elif next_turn == RIGHT:
-    # #     print("next forced turn = RIGHT")
-    # # else:
-    # #     print("next forced turn = ???")
-
-
-    # avgLefts = np.mean(lefts)
-    # avgRights = np.mean(rights)
-    # #print(avgLefts, " and ", avgRights)
-    # displayHeightLines = False
-    # # if (lefts and rights):
-    # #     if (avgLefts < avgRights):
-    # #         print("left higher than right, turn left")
-    # #     else:
-    # #         print("left lower than right, turn right")
-    # #     displayHeightLines = True
-
-
-
-
-
-
-
-
-    # if turnNow and not useControl:
-
-    #     if time_spent_turning > 50:
-    #         time_spent_turning = 0
-    #         time_after_last_forced_turn = 0
-    #         forcedTurn = False
-    #         next_turn = NONE
-
-    #     if next_turn == LEFT and forcedTurn:
-    #         twist.angular.z = 0.18
-    #         time_spent_turning += 1
-    #         #print("forced turning left")
-    #     elif next_turn == RIGHT and forcedTurn:
-    #         twist.angular.z = -0.18
-    #         time_spent_turning += 1
-    #         #print("forced turning right")
-    #     elif (lefts and rights):
-    #         if (avgLefts < avgRights):
-    #             twist.angular.z = 0.18
-    #             #print("left")
-    #         else:
-    #             twist.angular.z = -0.18
-    #             #print("right")
-    #     else:
-    #         twist.angular.z = 0
-
-    # else:
-    #     lefts, rights = [], []
-    #     for height in range(min(savedHitHeight, 100)):
-    #         for width in range(60):
-    #             if img[TOP-height, CENTER-width]:
-    #                 if width == 0: # the line is too close to the middle to classify as left
-    #                     break
-    #                 lefts.append(width)
-    #                 #print("left", width)
-    #                 break
-    #         for width in range(60):
-    #             if img[TOP-height, CENTER+width]:
-    #                 if width == 0:
-    #                     break
-    #                 rights.append(width)
-    #                 #print("right", width)
-    #                 break
-    #     if lefts and rights:
-    #         mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
-    #     elif lefts:
-    #         mid = CENTER - int(np.mean(lefts)) + WIDTH
-    #     elif rights:
-    #         mid = CENTER + int(np.mean(rights)) - WIDTH
-    #     else:
-    #         twist.angular.z = 0
-    #         #print("control none")
-    #         cmd_vel_pub.publish(twist)
-    #         return
-    #     control = mid - CENTER
-    #     img[600:690, mid] = 255
-    #     img[500:690, CENTER] = 255
-
-    #     # control = pid(control)/100.0
-    #     control = control/100.0
-    #     twist.angular.z = -control
-    #     #print("control:", control)
-
-    # if displayHeightLines:
-    #     img[avgLefts, CENTER-50:CENTER] = 255
-    #     img[avgRights, CENTER:CENTER+50] = 255
-    # cmd_vel_pub.publish(twist)
-
-    # time_after_last_forced_turn += 1
-
-
-    # bridge = CvBridge()
-    # # img = img.astype("uint8")
-    # # # # img[img == True] = 255
-    # # img *= 255
-    # # #print(img[40])
-    # # cv_image = img
-    # #print(img)
-    # image_pub = rospy.Publisher("image_topic_2", Image, queue_size=1)
-    # msg = bridge.cv2_to_imgmsg(img, "mono8")
-    # #print(msg)
-    # image_pub.publish(msg)
-
-    #show(img)
-    #show(img)
-    #print(cv2.countNonZero(img))
-    # img = morphology.skeletonize(m//255)
-    # img = img.astype("uint8")
-    # img *= 255
-    #img = m
-
-    # lefts, rights = [], []
-    # asdcount = 0
-    # #show(img)
-    # for height in range(100, 200):
-    #     for width in range(100):
-    #         if img[TOP - height, CENTER - width]:
-    #             lefts.append(width)
-    #             break
-    #     for width in range(100):
-    #         if img[TOP - height, CENTER + width]:
-    #             rights.append(width)
-    #             break
-    #     asdcount += 1
-    #     if img[TOP - height, CENTER]:
-    #         break
-    # if next_turn == NONE or certainty < 3:
-    #     if len(lefts) < asdcount * 0.8:
-    #         if next_turn == LEFT:
-    #             certainty += 1
-    #         else:
-    #             certainty = 0
-    #         next_turn = LEFT
-    #         print("next turn = LEFT")
-    #         if len(rights) < asdcount * 0.8:
-    #             print("next turn = ???")
-    #     elif len(rights) < asdcount * 0.8:
-    #         if next_turn == RIGHT:
-    #             certainty += 1
-    #         else:
-    #             certainty = 0
-    #         next_turn = RIGHT
-    #         print("next turn = RIGHT")
-
-    # for height in range(20):
-    #     if img[TOP - height, CENTER]:
-    #         turn = True
-
-    # if turn:
-    #     time_spent_turning += 1
-    #     print("forced turn")
-    # else:
-    #     time_spent_turning = 0
-
-    # if time_spent_turning > 10:
-    #     turn = False
-    #     next_turn = NONE
-
-    # found = False
-    # turn2 = False
-
-    # leftvote = 0
-    # rightvote = 0
-    # twist.linear.x = 0.05
-    # twist.linear.y = twist.linear.z = 0
-    # twist.angular.x = twist.angular.y = 0
-    # twist.angular.z = 0
-
-    # if next_turn == LEFT and turn:
-    #     twist.angular.z = 0.5
-    #     print("forced turning left")
-    # elif next_turn == RIGHT and turn:
-    #     twist.angular.z = -0.5
-    #     print("forced turning right")
-
-    # cmd_vel_pub.publish(twist)
-
-
-    #print("turn by:", control)
-    # bridge = CvBridge()
-    # img = img.astype("uint8")
-    # #print(img)
-    # # # img[img == True] = 255
-    # #img *= 255
-    # # #print(img[40])
-    # # cv_image = img
-    # #print(img)
-    # image_pub = rospy.Publisher("image_topic_2", Image)
-    # msg = bridge.cv2_to_imgmsg(img, "mono8")
-    # #print(msg)
-    # image_pub.publish(msg)
-
-
-
-    # new ###########################
-    # lefts, rights = [], []
-    # for height in range(50):
-    #     for width in range(60):
-    #         if img[TOP-height, CENTER-width]:
-    #             lefts.append(width)
-    #             break
-    #     for width in range(60):
-    #         if img[TOP-height, CENTER+width]:
-    #             rights.append(width)
-    #             break
-
-    # hard coded turn now
-    # if img[TOP, CENTER]:
-    #     left_count = 0
-    #     right_count = 0
-    #     for height in range(20):
-    #         for width in range(50):
-    #             if img[TOP-height, CENTER-width]:
-    #                 left_count += 1
-    #             if img[TOP-height, CENTER+width]:
-    #                 right_count += 1
-    #     if left_count / right_count > 2:
-    #         print("TURN LEFT NOW!!!!")
-    #         twist.angular.z = 1
-    #     if right_count / left_count > 2:
-    #         print("TURN RIGHT NOW!!!!")
-    #         twist.angular.z = -1
-
-        # twist.linear.y = twist.linear.z = 0
-        # twist.angular.x = twist.angular.y = 0
-
-        # cmd_vel_pub.publish(twist)
-        # return
-
-    # if len(lefts) < 15:
-    #     rights = []
-
-    # if len(rights) < 15:
-    #     rights = []
-    # if lefts and rights:
-    #     mid = (2*CENTER - int(np.mean(lefts)) + int(np.mean(rights)))//2
-    # elif lefts:
-    #     mid = CENTER - int(np.mean(lefts)) + WIDTH
-    # elif rights:
-    #     mid = CENTER + int(np.mean(rights)) - WIDTH
-    # else:
-    #     return
-    # control = mid - CENTER
-    # # control = pid(control)/100.0
-    # control = control/100.0
-    # print("at:", mid)
-    # print("control:", control)
-    # img[670:690, mid] = True
-    # if abs(control) < 0.3:
-    #     twist.linear.x = 0.20
-    # else:
-    #     twist.linear.x = 0.10
-
-    # twist.linear.y = twist.linear.z = 0
-    # twist.angular.x = twist.angular.y = 0
-    # twist.angular.z = -control#-float(err) / 100
-
-    # cmd_vel_pub.publish(twist)
-
-    # print("turn by:", control)
-
-
-def getCameraData(pixel_data):
-    # TODO check if subscribed topics correct
-    """
-    Subscriber function for camera data
-    :return: RGB and depth data
-    """
-    # pixel_data = None
-    # while pixel_data is None:
-    #     try:
-    #         pixel_data =
-    #     except Exception as e:
-    #         print(e)
-    #         pass
-    print("got camera data")
-
-    return dst
 
 
 def mask(img, lo, hi):
@@ -866,7 +550,6 @@ def show(*images):
     plt.show()
 
 
-
 if __name__ == "__main__":
     cmd_vel_pub = rospy.Publisher('cmd_vel',
                         Twist, queue_size=1)
@@ -875,6 +558,8 @@ if __name__ == "__main__":
     rospy.Subscriber("camera/rgb/image_rect_color", Image, callback)
     rospy.init_node("drive")
 
+
+    
     # pid = PID(1, 0.1, 0.05, setpoint=0, proportional_on_measurement =True)
     # pid.output_limits = (-100, 100)
     rospy.spin()
