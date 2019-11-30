@@ -32,7 +32,7 @@ from locate import contour_ranges, find_beacon
 LEFT = -1
 RIGHT = 1
 NONE = 0
-RVIZ = False
+RVIZ = True
 TOP = 699
 CENTER = 397
 WIDTH = 47
@@ -49,6 +49,7 @@ class Control():
     aboutToCrossStopLine = False
     useStabilise = False
     hasMovedUp = False
+    timePassedStop = 0
 
     def __init__(self, img, twist):
         self.original = img
@@ -149,14 +150,17 @@ class Control():
             self.twist.linear.y = self.twist.linear.z = 0
             self.twist.angular.x = self.twist.angular.y = 0
             self.twist.angular.z = 1
+            Control.timePassedStop = 0
         else:
             print("turning right")
             self.twist.linear.x = 0.15
             self.twist.linear.y = self.twist.linear.z = 0
             self.twist.angular.x = self.twist.angular.y = 0
             self.twist.angular.z = -0.23
+            Control.timePassedStop = -25
             
-
+            
+        
         cmd_vel_pub.publish(self.twist)
         time.sleep(2.5)
 
@@ -215,13 +219,15 @@ class Control():
         return max(set(self.lastTurns), key=self.lastTurns.count)
     
         
-
+    
 
     def step(self):
         print("hitHeight = ", self.hitHeight)
-
         if RVIZ:
             self.useRviz()
+            return
+
+        
         
         if (20 < self.hitHeight < 150 and self.detectStopLine(self.img)):
             Control.useStabilise = True
@@ -233,12 +239,15 @@ class Control():
             Control.useStabilise = False
             self.makeTurn()
             self.completeAdjustment()
+            
             return
-        
 
+        Control.timePassedStop += 1
+        if Control.timePassedStop == 50:
+            print("can correct overshooting again")
         self.updateOvershotLine()
         #print(Control.overshot)
-        if Control.overshot:
+        if Control.overshot and Control.timePassedStop > 50:
             print("OVERSHOT. LAST TURN =", self.getLastTurn())
             self.twist.linear.x = 0.05
             self.twist.angular.z = self.getLastTurn()
@@ -290,6 +299,8 @@ class Control():
                 print("3", self.twist.angular.z)
 
             cmd_vel_pub.publish(self.twist)
+
+            
 
         
 

@@ -101,7 +101,7 @@ void WallFollower::callbackScan(const sensor_msgs::LaserScanConstPtr& scan) {
         }
     }
 
-    std::cout << "side " << XMaxSide << "front" << XMinFront << std::endl;
+
     ROS_DEBUG("Detected walls %.2f left, %.2f front\n", XMaxSide, XMinFront);
     float turn, drive;
 
@@ -109,7 +109,6 @@ void WallFollower::callbackScan(const sensor_msgs::LaserScanConstPtr& scan) {
         // No hits beside robot, so turn that direction
         turn = 1;
         drive = 0;
-        std::cout << "no wall" << std::endl;
     } else if (XMinFront <= MIN_APPROACH_DIST) {
         // Blocked side and front, so turn other direction
         turn = -1;
@@ -130,12 +129,10 @@ void WallFollower::callbackScan(const sensor_msgs::LaserScanConstPtr& scan) {
         // turn2 = (limit - XF) / (limit - min) // Clipped to range (0..1)
         float turn2 = (MAX_APPROACH_DIST - XMinFront) / (MAX_APPROACH_DIST - MIN_APPROACH_DIST);
         turn2 = CLIP_0_1(turn2);
-        
+
         // turn = turn1 - turn2
         turn = turn1 - turn2;
-        std::cout << "turn1 " << turn1 << std::endl;
-        std::cout << "turn2 " << turn2 << std::endl;
-        std::cout << "driv1 " << drive1 << "drive2" << drive2 << std::endl;
+
         // drive = drive1 * drive2
         drive = drive1 * drive2;
     }
@@ -157,7 +154,7 @@ void WallFollower::callbackScan(const sensor_msgs::LaserScanConstPtr& scan) {
 }
 
 void WallFollower::callbackControl(const std_msgs::StringConstPtr& command) {
-    ROS_INFO("Received %s message.\n", command->data.c_str());
+    ROS_INFO("Recieved %s message.\n", command->data.c_str());
     if (strcasecmp(command->data.c_str(), "start") == 0 ||
             strcasecmp(command->data.c_str(), "go") == 0 ||
             strcasecmp(command->data.c_str(), "begin") == 0 ||
@@ -173,3 +170,4 @@ void WallFollower::callbackControl(const std_msgs::StringConstPtr& command) {
 }
 
 } // namespace comp3431
+

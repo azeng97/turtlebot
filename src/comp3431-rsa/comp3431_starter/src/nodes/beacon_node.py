@@ -2,367 +2,202 @@
 
 import subprocess
 import rospy
-from tf import TransformListener
 from std_msgs.msg import Int8, Float64, Float64MultiArray, String
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
-import time
 
 from sensor_msgs.msg import PointCloud2, PointField
-import sensor_msgs.point_cloud2 as pc2
 
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
-from locate import contours_from_range, find_beacon
-
 
 class Beacon:
     def __init__(self, id, top, bottom):
         self.id = id
         self.top = top
         self.bottom = bottom
-        self.all_positions = []
-
-    def add_pos(self, pos):
-        self.all_positions.append(pos)
-
-    def average_position(self):
-
-        x_sum = y_sum = z_sum = 0
-        length = len(self.all_positions)
-        if not length:
-            print("not length")
-            return (0, 0, 0)
-        for x, y, z in self.all_positions:
-            x_sum += x
-            y_sum += y
-            z_sum += z
-        #return self.all_positions[-1]
-        return (x_sum/length, y_sum/length, z_sum/length)
-
-    def find_pos(self, ranges, pointcloud_data):
-        print(self.top)
-        print(ranges)
-        print(ranges[self.top])
-        pos = find_beacon(ranges[self.top], ranges[self.bottom])
-        if not pos:
-            return
-        x, y = pos
-        print("found beacon", self.id)
-        if (len(self.all_positions) < 5):
-            cmd_pub.publish("stop")
-            time.sleep(0.5)
-            cmd_pub.publish("start")
-        
-        pos = pointcloud_data[x][y]
-        if np.isnan(pos[0]):
-            return [0, 0, 0.3]
-        pos = transform(pos)
-        self.add_pos(pos)
 
 
 def main():
     rospy.init_node("comp3431_starter_beacons")
+    beacon_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=1)
     # rospy.Subscriber("/color/image_raw", Float64MultiArray, pixel_rgb)
     # rospy.Subscriber("/depth/image_raw", Float64MultiArray, pixel_depth)
-
-    # beacons = set(beacons)
-    rospy.Subscriber("cmd", String, start)
-
-    print("beacon node waiting for start cmd")
-    rospy.spin()
-
-def start(data):
-    if data.data != "start_beacon": 
-        return
-    else:
-        print("starting beacon node")
-        beacons()
-
-def beacons():
-    global cmd_pub
-    beacon_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=100)
-    cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
-    origin_pub = rospy.Publisher(
-        "move_base_simple/goal", PoseStamped, queue_size=1)
-    rospy.sleep(1)
-
-
-    start = time.time()
-
-    # TOP ON LEFT, BOTTOM ON RIGHT
     beacons = [
         Beacon(0, "pink", "green"),
         Beacon(1, "blue", "pink"),
         Beacon(2, "pink", "yellow"),
         Beacon(3, "yellow", "pink")
     ]
+    print("running")
+    beacons = set(beacons)
+    cmd_pub = rospy.Publisher("/cmd", String, queue_size=1)
+    origin_pub = rospy.Publisher("move_base_simple/goal", PoseStamped, queue_size=1)
+    while beacons:
+        pixel_data, depth_data = getCameraData()
+        pose = getPose()
+        beacon, pos = detect_beacons(pixel_data, depth_data, beacons)
+        if not pos:
+            continue
+        map_coord = transform(pos, pose)
+        publish_beacon(beacon_pub, beacon, map_coord)
+    # beacons all found
 
-    # cmd_pub.publish("start")  # start wall following
-    found_beacons = set()
-    start = float("inf")
-    while time.time() - start < 5:
-        pixel_data, pointcloud_data = getCameraData()
-        detect_beacons(pixel_data, pointcloud_data, beacons)
-        for beacon in beacons:            
-            if (beacon.all_positions):
-                found_beacons.add(beacon.id)
-                publish_beacon(beacon_pub, beacon)
-
-        if len(found_beacons) == len(beacons) and start == float("inf"):
-            start = time.time()
-
-
-
-
-    # #TODO save map
-    #subprocess.Popen(["rosrun", "map_server", "map_saver", "-f", "test"])
-    rospy.sleep(1)
+    #TODO save map
     cmd_pub.publish("stop") #stop wall following
-    rospy.sleep(1)
-    cmd_pub.publish("start_nav")
-    # #TODO launch navigation with map file argument
-    # subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch", "map_file:=/home/rsa/turtlebot/src/comp3431-rsa/comp3431_starter/src/nodes/test.yaml"])
-    # rospy.sleep(15)
-    # #TODO check if initial position is 0 or need to set at the start
-    # origin = PoseStamped()
-    # origin.header.frame_id = "map"
-    # origin.pose.position.x = 0
-    # origin.pose.position.y = 0
-    # origin.pose.position.z = 0
-    # origin.pose.orientation.x = 0
-    # origin.pose.orientation.y = 0
-    # origin.pose.orientation.z = 0
-    # origin.pose.orientation.w = 1
-    # origin_pub.publish(origin)
 
+    #TODO launch navigation with map file argument
+    subprocess.Popen(["roslaunch", "turtlebot3_navigation", "turtlebot3_navigation.launch"])
+
+    #TODO check if initial position is 0 or need to set at the start
+    origin = PoseStamped()
+    origin.pose.position.x = 0
+    origin.pose.position.y = 0
+    origin.pose.position.z = 0
+    origin_pub.publish(origin)
+
+
+
+class image_converter:
+
+    def __init__(self):
+        self.image_pub = rospy.Publisher("image_topic_2",Image, queue_size=1)
+        self.bridge = CvBridge()
+        self.image_sub = rospy.Subscriber("/camera/rgb/image_raw",Image,self.callback)
+
+    def callback(self,data):
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        except CvBridgeError as e:
+            print(e)
+        (rows,cols,channels) = cv_image.shape
+        if cols > 60 and rows > 60 :
+            cv2.circle(cv_image, (50,50), 10, 255)
+            cv2.imshow("Image window", cv_image)
+            cv2.waitKey(3)
+        try:
+            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+        except CvBridgeError as e:
+            print(e)
 
 
 def getCameraData():
-    # TODO check if subscribed topics correct
+    #TODO check if subscribed topics correct
     """
     Subscriber function for camera data
     :return: RGB and depth data
     """
     pixel_data = None
-    pcl = None
-    while pixel_data is None or pcl is None:
+    depth_data = None
+    while not pixel_data or not depth_data:
         try:
-            #pixel_data = rospy.wait_for_message("/camera/color/image_raw", Image, timeout=1)
-            pixel_data = rospy.wait_for_message(
-                "/camera/rgb/image_raw", Image, timeout=1)
-            pointcloud_data = rospy.wait_for_message(
-                "/camera/depth/points", PointCloud2, timeout=1)
-            pcl = pointcloud2_to_array(pointcloud_data)
+            pixel_data = rospy.wait_for_message("/camera/color/image_raw", Image, timeout=1)
+            #pixel_data = rospy.wait_for_message("/camera/rgb/image_raw", Image, timeout=1)
+            depth_data = rospy.wait_for_message("/camera/depth/image_raw", Image, timeout=1)
         except Exception as e:
             print(e)
             pass
-    return pixel_data, pcl
+    return pixel_data, depth_data
 
-# def getPose():
-#     """
-#     Subscriber function for turtlebot pose
-#     :return: pose as geometry_msgs/Pose message
-#     """
-#     pose = None
-#     while not pose:
-#         try:
-#             odom = rospy.wait_for_message("/odom", Odometry, timeout=1)
-#         except Exception as e:
-#             print(e)
-#             pass
-#     return odom.pose
-
-
-def detect_beacons(pixel_data, pointcloud_data, beacons):
+def getPose():
     """
-    Detect beacons from RGB data and map to Depth data
-    :param pixel_data: Image (something from realsense camera)
-    :param depth_data: Image
-    :param beacons: set of beacons remaining to be found
-    :return: position of detected beacon or None if not found
+    Subscriber function for turtlebot pose
+    :return: pose as geometry_msgs/Pose message
     """
-    print("detecting beacons")
+    pose = None
+    while not pose:
+        try:
+            print("waiting for odom")
+            odom = rospy.wait_for_message("/odom", Odometry, timeout=1)
+        except Exception as e:
+            print(e)
+            pass
+        return [0,0,0]
+    return odom.pose.pose
+
+def detect_beacons(pixel_data, depth_data, beacons):
     bridge = CvBridge()
-    img = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
-    np.save("10", img)
-    #depth = bridge.imgmsg_to_cv2(pointcloud_data, "bgr8")
-    #cv2.imshow("depth", pointcloud_data)
-    #cv2.waitKey(0)
+    colour = bridge.imgmsg_to_cv2(pixel_data, "bgr8")
+    depth = bridge.imgmsg_to_cv2(depth_data, "32FC1")
 
-    ranges = {}
-    #BGR HSV: Pink
-    pink_lowerHSV = (150, 80, 80)
-    pink_upperHSV = (180, 210, 255)
-    ranges["pink"] = contours_from_range(img, pink_lowerHSV, pink_upperHSV)
+    colour_boundaries = [
+        #(([100,40,160], [170,100,255]))
+        
+        (([0,0,0], [255,255,255]))
+        ##[0, 100, 0], [20, 130, 20]),
+        #([86, 31, 4], [220, 88, 50]),
+        #([25, 146, 190], [62, 174, 250]),
+        #([103, 86, 65], [145, 133, 128])
+    ]
 
-    #BGR HSV: Blue
-    blue_lowerHSV = (84, 130, 55)
-    blue_upperHSV = (110, 255, 255)
-    ranges["blue"] = contours_from_range(img, blue_lowerHSV, blue_upperHSV)
+    # blue: 
 
-    #BGR HSV: Green
-    green_lowerHSV = (50, 100, 15)
-    green_upperHSV = (83, 255, 150)
-    ranges["green"] = contours_from_range(img, green_lowerHSV, green_upperHSV)
+    for (lower, upper) in colour_boundaries:
+        lower = np.array(lower, dtype = "uint8")
+        upper = np.array(upper, dtype = "uint8")
+        
+        mask = cv2.inRange(colour, lower, upper)
+        output = cv2.bitwise_and(colour, colour, mask = mask)
+        
+        detected = False
+        max_row = 0
+        max_col = 0
+        min_row = output.shape[0]
+        min_col = output.shape[1]
+        for row in range(0, output.shape[0]):
+            for col in range(0, output.shape[1]):
+                if output[row][col][0] != 0:
+                    detected = True
+                    if row > max_row:
+                        max_row = row
+                    if col > max_col:
+                        max_col = col
+                    if row < min_row:
+                        min_row = row
+                    if row < min_col:
+                        min_col = col
+        
+        middle_row = (max_row + min_row) / 2
+        middle_col = (max_col + min_col) / 2
+        print("Middle pixel in: (" + str(middle_row) + ", " + str(middle_col) + ")")
+        print(output.shape[0])
+        cv2.imshow("output", output)
+        cv2.waitKey(0)
+    
+    pixel_location = [middle_row, middle_col, depth[middle_row, middle_col]]
+    #print(output[middle_row][middle_col])
+    pos = pixel_location
+    beacon = beacons.pop()
+    return beacon, pos
 
-    #BGR HSV: Yellow:
-    yellow_lowerHSV = (0, 120, 50)
-    yellow_upperHSV = (30, 255, 255)
-    ranges["yellow"] = contours_from_range(img, yellow_lowerHSV, yellow_upperHSV)
-
-    for beacon in beacons:
-        beacon.find_pos(ranges, pointcloud_data)
-
-def transform(pos):
+def transform(pos, baseframe):
+    #TODO do transformation (remember robot origin is different from camera pos)
     """
     Convert coordinate in camera frame to world frame
     :param pos: coordinate of beacon in camera frame
     :param baseframe: robot pose (coordinate, orientation)
     :return: coordinate of beacon in world frame
     """
+    return pos
 
-    p1 = PoseStamped()
-    p1.header.frame_id = "camera_link"
-    p1.pose.orientation.w = 1.0
-    p1.pose.position.x = pos[2]
-    p1.pose.position.y = pos[0]
-    p1.pose.position.z = pos[1]
-    tf = TransformListener()
-    tf.waitForTransform("/camera_link", "/map", rospy.Time(0), rospy.Duration(4.0))
-    while not rospy.is_shutdown():
-        try:
-            tf.waitForTransform("/camera_link", "/map", rospy.Time(0), rospy.Duration(4.0))
-            break
-        except:
-            print("except")
-            pass
-
-    p_in_base = tf.transformPose("/map", p1)
-
-    return [p_in_base.pose.position.x, p_in_base.pose.position.y, p_in_base.pose.position.z]
-
-
-def publish_beacon(beacon_pub, beacon):
-    # TODO populate fields of marker using coord and beacon info
+def publish_beacon(beacon_pub, beacon, map_coord):
+    #TODO populate fields of marker using coord and beacon info
     """
     :param beacon_pub: publisher handle
     :param beacon: Beacon object
     :param map_coord: Converted map coordinate
     """
-
     marker = Marker()
-    marker.header.frame_id = "map" #not sure if correct frame ###############
-    marker.header.stamp = rospy.get_rostime()
-    marker.ns = "beacon_shapes"
-    marker.id = beacon.id
-    marker.type = 3 #cylinder shape
-    marker.action = marker.ADD #add/modify shape
-    #placement of shape
-
-    map_coord = beacon.average_position()
-
-    marker.pose.position.x = map_coord[0]
-    marker.pose.position.y = map_coord[1]
-    marker.pose.position.z = map_coord[2]
-    # marker.pose.position.x = map_coord[0]
-    # marker.pose.position.y = map_coord[2]
-    # marker.pose.position.z = map_coord[1]
-    print("marker location:", marker.pose.position.x, marker.pose.position.y, marker.pose.position.z)
-    marker.pose.orientation.x = 0.0
-    marker.pose.orientation.y = 0.0
-    marker.pose.orientation.z = 0.0
-    marker.pose.orientation.w = 1.0
-    #size of shape, maybe modify
-    marker.scale.x = 0.1
-    marker.scale.y = 0.1
-    marker.scale.z = 0.1
-    #colour of shape, green atm, maybe modify based on beacon param
-    if (marker.id == 0):
-        marker.color.r = 0.0
-        marker.color.g = 1.0
-        marker.color.b = 0.0
-        marker.color.a = 1.0
-        print("plot 0")
-    elif (marker.id == 1):
-        marker.color.r = 0.0
-        marker.color.g = 0.0
-        marker.color.b = 1.0
-        marker.color.a = 1.0
-        print("plot 1")
-    elif (marker.id == 2):
-        marker.color.r = 1.0
-        marker.color.g = 1.0
-        marker.color.b = 0.5
-        marker.color.a = 1.0
-        print("plot 2")
-    elif (marker.id == 3):
-        marker.color.r = 1.0
-        marker.color.g = 1.0
-        marker.color.b = 0.0
-        marker.color.a = 1.0
-        print("plot 3")
-
-    marker.lifetime = rospy.Duration(1000) #does not delete shape
-
-
-
-    
-
     beacon_pub.publish(marker)
-
-
-    marker2 = Marker()
-    marker2.header.frame_id = "map" #not sure if correct frame ###############
-    marker2.header.stamp = rospy.get_rostime()
-    marker2.ns = "beacon_shapes"
-    marker2.id = beacon.id * 4 + 100
-    marker2.type = 9#cylinder shape
-    marker2.action = marker2.ADD #add/modify shape
-    #placement of shape
-
-    map_coord = beacon.average_position()
-
-    marker2.pose.position.x = map_coord[0]
-    marker2.pose.position.y = map_coord[1]
-    marker2.pose.position.z = map_coord[2]
-    # marker2.pose.position.x = map_coord[0]
-    # marker2.pose.position.y = map_coord[2]
-    # marker2.pose.position.z = map_coord[1]
-    print("marker2 location:", marker2.pose.position.x, marker2.pose.position.y, marker2.pose.position.z)
-    marker2.pose.orientation.x = 0.0
-    marker2.pose.orientation.y = 0.0
-    marker2.pose.orientation.z = 0.0
-    marker2.pose.orientation.w = 1.0
-    #size of shape, maybe modify
-    marker2.scale.x = 0.25
-    marker2.scale.y = 0.25
-    marker2.scale.z = 0.25
-    #colour of shape, green atm, maybe modify based on beacon param
-    marker2.text = beacon.top + "," + beacon.bottom
-    marker2.color.r = 0.0
-    marker2.color.g = 0.0
-    marker2.color.b = 0.0
-    marker2.color.a = 1.0
-    marker2.lifetime = rospy.Duration(1000) #does not delete shape
-    beacon_pub.publish(marker2)
-    
-
-
-def pointcloud2_to_array(cloud_msg):
-    '''
-    Converts a rospy PointCloud2 message to a numpy recordarray
-
-    Assumes all fields 32 bit floats, and there is no padding.
-    '''
-    points = np.array([p for p in pc2.read_points(
-        cloud_msg, field_names=("x", "y", "z"), skip_nans=False)])
-    # print(np.shape(points), cloud_msg.height, cloud_msg.width)
-    return np.reshape(points, (cloud_msg.height, cloud_msg.width, 3))
-
 
 if __name__ == "__main__":
     main()
+    #ic = image_converter()
+    #rospy.init_node('image_converter', anonymous=True)
+    #try:
+    #    rospy.spin()
+    #except KeyboardInterrupt:
+    #    cv2.destroyAllWindows()

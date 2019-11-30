@@ -3,7 +3,7 @@ project(comp3431_starter)
 
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED COMPONENTS
-                    roscpp
+                    roscpp rviz
                     message_runtime std_msgs sensor_msgs geometry_msgs
                     image_transport
                     crosbot_msgs
@@ -69,6 +69,8 @@ ADD_DEFINITIONS(${QT_DEFINITIONS})
 ADD_DEFINITIONS(-DQT_NO_KEYWORDS)
 
 ## Add generated MOC Qt header files
+file(GLOB_RECURSE QT_MOC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} include/comp3431_starter/rviz/**.hpp)
+QT4_WRAP_CPP(QT_MOC_HPP ${QT_MOC})
 
 ## Starter library with all common code
 add_library(comp3431_starter_library
@@ -79,6 +81,11 @@ add_library(comp3431_starter_library
 )
 
 ## GUI Specific Libraries
+add_library(comp3431_starter_rviz_library
+    src/rviz/controlPanel.cpp
+    
+    ${QT_MOC_HPP}
+)
 
 ## Declaring all Nodes
 add_executable(comp3431_starter_beacons
@@ -119,7 +126,12 @@ target_link_libraries(comp3431_starter_controls
   ${OpenCV_LIBRARIES}
   comp3431_starter_library
 )
-
+target_link_libraries(comp3431_starter_rviz_library
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${QT_LIBRARIES}
+  comp3431_starter_library
+)
 
 #############
 ## Install ##

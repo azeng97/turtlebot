@@ -192,9 +192,9 @@ def get_processed_img(img):
     # m = cv2.dilate(m, kernel, iterations=5)
     m = cv2.erode(m, kernel, iterations=2)
     m[m>0] = 255
-    final = cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
-    print(detectStopLine(final))
-    show(img, m, cv2.bitwise_or(long_thin(m), flatern_rectangles(m)))
+    #final = cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
+    #print(detectStopLine(final))
+    #show(img, m, cv2.bitwise_or(long_thin(m), flatern_rectangles(m)))
     return cv2.bitwise_or(long_thin(m), flatern_rectangles(m))
 
 if __name__ == "__main__":
